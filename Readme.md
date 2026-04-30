@@ -1,4 +1,4 @@
-# FishQC 🐟
+# GLPFish 🐟
 
 > AI-powered marine fish quality control at the receiving point.
 

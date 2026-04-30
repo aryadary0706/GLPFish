@@ -1,81 +1,83 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+// src/context/AuthContext.jsx
+import { createContext, useState, useEffect, useCallback, useContext } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../firebase";
+import { authService } from "../services/authService";
 
-/**
- * AuthContext
- * Provides authentication state and actions across the app.
- * Replace the mock logic here with real API calls when the backend is ready.
- */
+export const AuthContext = createContext(null);
 
-const AuthContext = createContext(null)
+const ERROR_MAP = {
+  "auth/user-not-found": "Email tidak terdaftar",
+  "auth/wrong-password": "Password salah",
+  "auth/invalid-credential": "Email atau password salah",
+  "auth/email-already-in-use": "Email sudah digunakan",
+  "auth/weak-password": "Password minimal 6 karakter",
+  "auth/invalid-email": "Format email tidak valid",
+  "auth/too-many-requests": "Terlalu banyak percobaan, coba lagi nanti",
+  "auth/network-request-failed": "Tidak ada koneksi internet",
+};
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(() => {
-    // Persist session across page refresh
-    const stored = localStorage.getItem('fishqc_user')
-    return stored ? JSON.parse(stored) : null
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  /** Login — swap this mock with a real API call */
+  useEffect(() => {
+    return onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(
+        firebaseUser
+          ? {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+              email: firebaseUser.email,
+            }
+          : null
+      );
+    });
+  }, []);
+
   const login = useCallback(async ({ email, password }) => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      // TODO: replace with real API call e.g. await api.post('/auth/login', { email, password })
-      await new Promise(r => setTimeout(r, 800)) // simulate network
-      if (password.length < 6) throw new Error('Invalid credentials')
-      const userData = { id: 1, name: email.split('@')[0], email, role: 'inspector' }
-      localStorage.setItem('fishqc_user', JSON.stringify(userData))
-      setUser(userData)
-      return { success: true }
+      await authService.login(email, password);
+      return { success: true };
     } catch (err) {
-      setError(err.message)
-      return { success: false, message: err.message }
+      const msg = ERROR_MAP[err.code] ?? "Terjadi kesalahan, coba lagi";
+      setError(msg);
+      return { success: false, message: msg };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
-  /** Register — swap this mock with a real API call */
   const register = useCallback(async ({ name, email, password }) => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      // TODO: replace with real API call e.g. await api.post('/auth/register', { name, email, password })
-      await new Promise(r => setTimeout(r, 800)) // simulate network
-      if (password.length < 6) throw new Error('Password must be at least 6 characters')
-      const userData = { id: Date.now(), name, email, role: 'inspector' }
-      localStorage.setItem('fishqc_user', JSON.stringify(userData))
-      setUser(userData)
-      return { success: true }
+      await authService.register(name, email, password);
+      return { success: true };
     } catch (err) {
-      setError(err.message)
-      return { success: false, message: err.message }
+      const msg = ERROR_MAP[err.code] ?? "Terjadi kesalahan, coba lagi";
+      setError(msg);
+      return { success: false, message: msg };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
-  /** Logout */
-  const logout = useCallback(() => {
-    localStorage.removeItem('fishqc_user')
-    setUser(null)
-  }, [])
-
-  /** Clear any lingering error */
-  const clearError = useCallback(() => setError(null), [])
+  const logout = useCallback(() => authService.logout(), []);
+  const clearError = useCallback(() => setError(null), []);
 
   return (
     <AuthContext.Provider value={{ user, loading, error, login, register, logout, clearError }}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
-/** Hook: useAuth — consume auth context anywhere */
 export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>')
-  return ctx
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  return ctx;
 }
