@@ -1,6 +1,6 @@
 // src/services/predictionService.js
 import { doc, addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "../firebase";
+import { db, auth } from "../../firebase";
 
 const MODEL_API_URL = import.meta.env.VITE_MODEL_API_URL; // siapkan di .env
 

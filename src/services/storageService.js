@@ -1,6 +1,6 @@
 // src/services/storageService.js
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth } from "../firebase";
+import { storage, auth } from "../../firebase";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024;
