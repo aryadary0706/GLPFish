@@ -1,7 +1,7 @@
 // src/hooks/useImageUpload.js
 import { useState, useCallback } from "react";
 import { storageService } from "../services/storageService";
-import { predictionService } from "../services/predictionService";
+import { predictionService } from "../services/modelService";
 
 export function useImageUpload() {
   const [progress, setProgress] = useState(0);

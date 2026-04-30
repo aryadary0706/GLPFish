@@ -19,6 +19,7 @@ const ERROR_MAP = {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
             }
           : null
       );
+      setInitializing(false);
     });
   }, []);
 
@@ -68,6 +70,8 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => authService.logout(), []);
   const clearError = useCallback(() => setError(null), []);
+
+  if (initializing) return null; // <= bisa diganti untuk page spinner render halaman yang akan ditampilkan
 
   return (
     <AuthContext.Provider value={{ user, loading, error, login, register, logout, clearError }}>

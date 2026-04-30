@@ -10,11 +10,11 @@ export default function ProtectedRoute({ children }) {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login', { replace: true })
-    }
-  }, [user, navigate])
+  // useEffect(() => {
+  //   if (!user) {
+  //     navigate('/login', { replace: true })
+  //   }
+  // }, [user, navigate])
 
-  return user ? children : null
+  return user ? children : <Navigate to="/login" replace />
 }

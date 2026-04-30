@@ -28,7 +28,7 @@ export const predictionService = {
     // Mock sementara — hapus saat API siap
     await new Promise((r) => setTimeout(r, 1200));
     const label = "Segar";
-    const confidence = 0.94;
+    const confidence = 1.00;
 
     // Simpan hasil ke Firestore
     const docRef = await addDoc(collection(db, "inspections"), {
