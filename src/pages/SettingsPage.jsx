@@ -5,6 +5,16 @@ import { User, Bell, Shield, Moon, Lock, Smartphone, Mail } from 'lucide-react';
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // State untuk navigasi
+  const [profile, setProfile] = useState({
+    name: user?.name || '',
+    email: user?.email || ''
+  });
+
+  const [password, setPassword] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   return (
     <div className="space-y-6">

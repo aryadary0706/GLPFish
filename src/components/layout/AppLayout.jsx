@@ -8,18 +8,18 @@ import {
   User,
   ChevronRight
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import NotificationList from './NotificationList';
-import api from '@/services/api';
+import { useProfile } from '../../hooks/useProfiles';
 
 export default function AppLayout() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
-  const [profileName, setProfileName] = useState('');
+  const { profile, loading } = useProfile()
 
   //metadata user name
-  const displayName =  user?.user_metadata?.name || 'User';
+  const displayName = profile?.name || 'Tidak termuat'
 
   const handleLogout = () => {
     logout();
@@ -63,10 +63,12 @@ export default function AppLayout() {
         <div className="p-4 mt-auto border-t border-slate-100">
           <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl mb-3">
             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-[#FB7D00] font-bold shadow-inner">
-              {displayName[0]}
+              {loading ? '...' : displayName[0]}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold text-slate-800 truncate">{displayName}</p>
+              <p className="text-sm font-bold text-slate-800 truncate">
+                {loading ? 'Memuat...' : displayName}
+              </p>
               <p className="text-[10px] font-medium text-slate-500 uppercase tracking-tighter">Petugas Inspeksi</p>
             </div>
           </div>

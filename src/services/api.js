@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
  * dari sesi Supabase aktif ke setiap request ke backend Express.
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 

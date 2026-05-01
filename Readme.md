@@ -65,6 +65,14 @@ App runs at `http://localhost:5173`
 
 ---
 
+## Authentication
+
+Proses registrasi dan login menggunakan Supabase Auth.
+> [!IMPORTANT]
+> **Penting saat Registrasi:** Setelah melakukan registrasi akun baru, sistem akan mengirimkan email konfirmasi. Anda harus mengecek kotak masuk (inbox) email Anda dan mengklik link konfirmasi yang dikirimkan untuk menyelesaikan proses *signup* dan mengaktifkan akun sebelum dapat login.
+
+---
+
 ## Adding a New Feature / Page
 
 1. Create `src/pages/YourPage.jsx`
