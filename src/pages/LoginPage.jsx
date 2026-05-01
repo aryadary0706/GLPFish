@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
-import { useForm } from '@/hooks/useForm'
-import { validateLogin } from '@/utils/validators'
+import { useAuth } from '../context/AuthContext'
+import { useForm } from '../hooks/useForm'
+import { validateLogin } from '../utils/validators'
 
 /**
  * LoginPage — authenticates an existing user.
@@ -13,10 +13,15 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  const { values, errors, handleChange, setError } = useForm({
+  const { values, errors, handleChange, setError, reset } = useForm({
     email: '',
     password: '',
   })
+
+  // Bersihkan form setiap kali halaman login di-mount (misal setelah logout)
+  useEffect(() => {
+    reset()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()

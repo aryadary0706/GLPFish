@@ -1,47 +1,37 @@
-// src/hooks/useInspections.js
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { inspectionService } from "../services/inspectionService";
+import { useState, useEffect } from 'react'
+import api from '@/services/api'
 
+/**
+ * useInspections — mengambil riwayat inspeksi milik user yang login.
+ * Memanggil GET /api/inspections (backend Express → Supabase).
+ */
 export function useInspections() {
-  const { user } = useAuth();
-  const [inspections, setInspections] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [inspections, setInspections] = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(null)
+  const [tick,        setTick]        = useState(0)
 
-  const fetch = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await inspectionService.getAll();
-      setInspections(data || []);
-    } catch (err) {
-      console.error("Error fetching inspections:", err);
-      setError(err.message);
-      setInspections([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  // Panggil refresh() untuk memuat ulang data dari backend
+  const refresh = () => setTick(t => t + 1)
 
-  useEffect(() => { 
-    fetch(); 
-  }, [fetch]);
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
 
-  const remove = useCallback(async (id) => {
-    try {
-      await inspectionService.delete(id);
-      setInspections((prev) => prev.filter((i) => i.id !== id));
-    } catch (err) {
-      console.error("Error deleting inspection:", err);
-      setError(err.message);
-    }
-  }, []);
+    api
+      .get('/inspections')
+      .then(({ data }) => {
+        if (!cancelled) setInspections((data.inspections ?? []).slice(0, 3))
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.response?.data?.error ?? err.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-  return { inspections, loading, error, refetch: fetch, remove };
+    return () => { cancelled = true }
+  }, [tick])
+
+  return { inspections, loading, error, refresh }
 }
