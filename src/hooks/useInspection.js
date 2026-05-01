@@ -1,37 +1,128 @@
-import { useState, useEffect } from 'react'
+// src/hooks/useInspection.js
+import { useState, useCallback, useEffect } from 'react'
 import api from '@/services/api'
 
-/**
- * useInspections — mengambil riwayat inspeksi milik user yang login.
- * Memanggil GET /api/inspections (backend Express → Supabase).
- */
-export function useInspections() {
-  const [inspections, setInspections] = useState([])
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
-  const [tick,        setTick]        = useState(0)
+// ─────────────────────────────────────────────────────────────
+// Hook: useUploadPredict
+// Kirim foto mata + insang → dapat hasil prediksi langsung
+// ─────────────────────────────────────────────────────────────
+export function useUploadPredict() {
+  const [loading,    setLoading]    = useState(false)
+  const [error,      setError]      = useState(null)
+  const [prediction, setPrediction] = useState(null)
 
-  // Panggil refresh() untuk memuat ulang data dari backend
-  const refresh = () => setTick(t => t + 1)
-
-  useEffect(() => {
-    let cancelled = false
+  /**
+   * @param {File} eyeFile   - File foto mata dari <input type="file">
+   * @param {File} gillFile  - File foto insang dari <input type="file">
+   */
+  const uploadAndPredict = useCallback(async (eyeFile, gillFile) => {
     setLoading(true)
+    setError(null)
+    setPrediction(null)
 
-    api
-      .get('/inspections')
-      .then(({ data }) => {
-        if (!cancelled) setInspections((data.inspections ?? []).slice(0, 3))
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.response?.data?.error ?? err.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    const formData = new FormData()
+    formData.append('eye',  eyeFile)
+    formData.append('gill', gillFile)
 
-    return () => { cancelled = true }
-  }, [tick])
+    try {
+      const { data } = await api.post('/upload/predict', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      // data = { success, image_id, prediction }
+      setPrediction(data.prediction)
+      return data
 
-  return { inspections, loading, error, refresh }
+    } catch (err) {
+      const message = err.response?.data?.error || 'Terjadi kesalahan saat analisis.'
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const reset = useCallback(() => {
+    setPrediction(null)
+    setError(null)
+  }, [])
+
+  return { uploadAndPredict, loading, error, prediction, reset }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hook: useInspections
+// Ambil semua riwayat inspeksi milik user dari DB
+// ─────────────────────────────────────────────────────────────
+export function useInspections() {
+  const [loading,     setLoading]     = useState(false)
+  const [error,       setError]       = useState(null)
+  const [inspections, setInspections] = useState([])
+
+  const fetchInspections = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data } = await api.get('/inspections')
+      // data.inspections: array of { id, file_name, storage_path, uploaded_at, prediction_results }
+      setInspections(data.inspections)
+      return data.inspections
+
+    } catch (err) {
+      const message = err.response?.data?.error || 'Gagal mengambil data inspeksi.'
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Auto-fetch saat pertama mount
+  useEffect(() => {
+    fetchInspections()
+  }, [fetchInspections])
+
+  // refresh = alias fetchInspections, kompatibel dengan DashboardPage
+  return { fetchInspections, refresh: fetchInspections, inspections, loading, error }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hook: useInspectionDetail
+// Ambil detail satu inspeksi berdasarkan image_id
+// ─────────────────────────────────────────────────────────────
+export function useInspectionDetail() {
+  const [loading,    setLoading]    = useState(false)
+  const [error,      setError]      = useState(null)
+  const [inspection, setInspection] = useState(null)
+
+  /**
+   * @param {string} imageId - UUID dari tabel images
+   */
+  const fetchDetail = useCallback(async (imageId) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data } = await api.get(`/inspections/${imageId}`)
+      // data.inspection: { id, file_name, storage_path, prediction_results: { grade, ... } }
+      setInspection(data.inspection)
+      return data.inspection
+
+    } catch (err) {
+      const message = err.response?.status === 404
+        ? 'Inspeksi tidak ditemukan.'
+        : err.response?.data?.error || 'Gagal mengambil detail inspeksi.'
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const reset = useCallback(() => {
+    setInspection(null)
+    setError(null)
+  }, [])
+
+  return { fetchDetail, inspection, loading, error, reset }
 }
