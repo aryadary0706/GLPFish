@@ -15,11 +15,14 @@ export default function AppLayout() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
+  const { user } = useAuth();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'admin@glpfish.com';
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
