@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { Upload, X, FileArchive, ImageIcon, LayoutGrid, Trash2 } from 'lucide-react'
+import { useInspections } from '@/hooks/useInspection'
+import { Upload, X, FileArchive, ImageIcon, LayoutGrid, Trash2, Clock } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { inspections, loading } = useInspections()
   const [dragActive, setDragActive] = useState(false)
   const [fileList, setFileList] = useState([]) // State untuk menyimpan daftar banyak file
   const inputRef = useRef(null)
@@ -146,6 +148,43 @@ export default function DashboardPage() {
                   Mulai Proses Analisis AI
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inspection History Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-8">
+          <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+            <Clock size={20} /> Riwayat Inspeksi
+          </h3>
+          
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FB7D00]"></div>
+              <span className="ml-3 text-slate-500">Memuat riwayat inspeksi...</span>
+            </div>
+          ) : inspections.length > 0 ? (
+            <div className="space-y-3">
+              {inspections.map((inspection) => (
+                <div key={inspection.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-800">{inspection.filename || 'Inspeksi'}</p>
+                    <p className="text-sm text-slate-500">
+                      {inspection.createdAt?.toDate?.()?.toLocaleDateString?.('id-ID') || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-[#FB7D00]">{inspection.confidence || 'N/A'}%</p>
+                    <p className="text-xs text-slate-500">{inspection.fishType || 'Unknown'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-500">
+              <p>Belum ada riwayat inspeksi. Unggah file untuk memulai analisis.</p>
             </div>
           )}
         </div>

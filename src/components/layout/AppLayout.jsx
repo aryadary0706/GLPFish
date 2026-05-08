@@ -1,22 +1,28 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  LayoutDashboard, 
-  LogOut, 
-  Settings, 
-  Bell, 
+import {
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  Bell,
   User,
   ChevronRight
 } from 'lucide-react';
+import { useState } from 'react';
+import NotificationList from './NotificationList';
 
 export default function AppLayout() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const [showNotif, setShowNotif] = useState(false);
+  const { user } = useAuth();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'admin@glpfish.com';
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
@@ -37,9 +43,8 @@ export default function AppLayout() {
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
-              `flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${
-                isActive 
-                ? 'bg-[#FB7D00] text-white shadow-md shadow-orange-100' 
+              `flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${isActive
+                ? 'bg-[#FB7D00] text-white shadow-md shadow-orange-100'
                 : 'text-slate-600 hover:bg-slate-50'
               }`
             }
@@ -81,14 +86,40 @@ export default function AppLayout() {
             <h2 className="text-sm font-bold text-slate-800">Sistem Kontrol Kualitas Ikan</h2>
             <p className="text-[11px] text-slate-400 font-medium italic">Hari ini: {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <button className="p-2.5 text-slate-400 hover:text-[#FB7D00] hover:bg-orange-50 rounded-full transition-all relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            {/* Tombol Notifikasi */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                className={`p-2.5 rounded-full transition-all relative ${showNotif
+                    ? 'text-[#FB7D00] bg-orange-50'
+                    : 'text-slate-400 hover:text-[#FB7D00] hover:bg-orange-50'
+                  }`}
+              >
+                <Bell size={20} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+
+              {/* Dropdown Notifikasi */}
+              {showNotif && (
+                <>
+                  {/* Overlay untuk menutup notif saat klik di luar */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotif(false)}></div>
+                  <div className="relative z-50">
+                    <NotificationList />
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="h-6 w-px bg-slate-200 mx-2"></div>
-            <button className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
+
+            {/* Tombol Settings */}
+            <button
+              onClick={() => navigate('/settings')}
+              className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+            >
               <Settings size={20} />
             </button>
           </div>
@@ -102,5 +133,6 @@ export default function AppLayout() {
         </main>
       </div>
     </div>
+
   );
 }
