@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { useForm } from '../hooks/useForm'
 import { validateLogin } from '../utils/validators'
 
@@ -27,18 +27,12 @@ export default function LoginPage() {
     e.preventDefault()
     setServerError('')
 
-    const fieldErrors = validateLogin(values)
-    if (Object.keys(fieldErrors).length) {
-      Object.entries(fieldErrors).forEach(([field, msg]) => setError(field, msg))
-      return
-    }
-
-    const result = await login(values)
-    if (result.success) {
-      navigate('/dashboard', { replace: true })
-    } else {
+    const { email, password } = values
+    const result = await login({ email, password })
+    if (!result.success) {
       setServerError(result.message)
     }
+    navigate('/')
   }
 
   return (
@@ -134,7 +128,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#FB7D00] hover:bg-[#E26C00] text-white font-semibold py-3 rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-[#FB7D00] hover:bg-[#E26C00] text-white font-semibold py-3 rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed disabled:opacity-80 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing in...' : 'Login'}
             </button>

@@ -1,10 +1,10 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
 
-  if (loading) return null  // jangan render apa-apa saat checking
+  if (loading) return <div>Memuat Konten...</div>
 
   return user ? children : <Navigate to="/login" replace />
 }

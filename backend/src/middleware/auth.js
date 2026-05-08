@@ -1,25 +1,20 @@
-import { supabase } from '../lib/supabase.js'
+import jwt from 'jsonwebtoken'
 
-export async function requireAuth(req, res, next) {
-  const header = req.headers.authorization
-
-  if (!header?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token tidak ditemukan' })
-  }
-
-  const token = header.split(' ')[1]
+export function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1]
+  if (!token) return res.status(401).json({ error: 'Token tidak ditemukan' })
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Token tidak valid atau sudah expired' })
-    }
-
-    req.user = user
+    req.user = jwt.verify(token, process.env.JWT_SECRET)
     next()
-  } catch (err) {
-    console.error('[requireAuth]', err.message)
-    return res.status(500).json({ error: 'Gagal memverifikasi token' })
+  } catch {
+    res.status(401).json({ error: 'Token tidak valid atau sudah expired' })
   }
+}
+
+export function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Akses ditolak. Hanya admin yang diizinkan.' })
+  }
+  next()
 }

@@ -1,69 +1,80 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createContext, useState, useEffect, useCallback } from 'react'
+import { AuthService  } from '@/services/AuthServices'
 
-const AuthContext = createContext(null)
+export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Restore session dari token yang tersimpan
   useEffect(() => {
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    const token = localStorage.getItem('token')
+    if (!token) {
       setLoading(false)
-    })
-
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+      return
+    }
+    AuthService.getMe()
+      .then(setUser)
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setLoading(false))
   }, [])
 
-  /**
-   * login — autentikasi dengan Supabase langsung dari frontend.
-   * @returns {{ success: boolean, message?: string }}
-   */
+  // Handle token expired dari interceptor axios
+  useEffect(() => {
+    const handler = () => setUser(null)
+    window.addEventListener('unauthorized', handler)
+    return () => window.removeEventListener('unauthorized', handler)
+  }, [])
+
   const login = useCallback(async ({ email, password }) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { success: false, message: error.message }
-    return { success: true }
+    try {
+      const { user, token } = await AuthService.login({ email, password })
+      console.log('token:', token)
+      console.log('user:', user)
+      localStorage.setItem('token', token)
+      setUser(user)
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.response?.data?.error ?? 'Login gagal' }
+    }
   }, [])
 
-  /**
-   * register — daftarkan akun baru via Supabase.
-   * @returns {{ success: boolean, message?: string }}
-   */
-  const register = useCallback(async ({ email, password, name }) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    })
-    if (error) return { success: false, message: error.message }
-    return { success: true }
+  const register = useCallback(async ({ email, password, name, role  }) => {
+    try {
+      const { user, token } = await AuthService.register({ email, password, name, role })
+      localStorage.setItem('token', token)
+      setUser(user)
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: err.response?.data?.error ?? 'Registrasi gagal' }
+    }
   }, [])
 
-  /**
-   * logout — sign out dari Supabase (sesi dan token dihapus otomatis).
-   */
   const logout = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await AuthService.logout()
+    } finally {
+      localStorage.removeItem('token')
+      setUser(null)
+    }
   }, [])
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const user = await AuthService.getMe()
+      setUser(user)
+    } catch {
+      // token invalid, paksa logout
+      localStorage.removeItem('token')
+      setUser(null)
+    }
+  }, [])
+
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth harus dipakai di dalam AuthProvider')
-  return ctx
 }

@@ -1,6 +1,6 @@
 // src/hooks/useInspection.js
 import { useState, useCallback, useEffect } from 'react'
-import api from '@/services/api'
+import api from '@/lib/api'
 
 // ─────────────────────────────────────────────────────────────
 // Hook: useUploadPredict

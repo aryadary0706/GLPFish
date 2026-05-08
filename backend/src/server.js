@@ -25,12 +25,8 @@ app.use('/api/auth', rateLimit({
 }))
 
 // ── CORS ──────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGIN
-  ? [process.env.ALLOWED_ORIGIN]
-  : [/^http:\/\/localhost:(5173|5174|5175|5176|5177|5178|5179)$/]
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: 'http://localhost:5173',
   credentials: true,
 }))
 
@@ -43,7 +39,7 @@ app.use((req, res, next) => {
 
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth',        authRoutes)
-app.use('/api/user',        userRoutes)
+app.use('/api/users',        userRoutes)
 app.use('/api/upload',      uploadRoutes)
 app.use('/api/inspections', inspectionRoutes)
 

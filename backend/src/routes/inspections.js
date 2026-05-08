@@ -11,7 +11,7 @@ const router = Router()
 // ─────────────────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('images')
       .select(`
         id,
@@ -31,15 +31,19 @@ router.get('/', requireAuth, async (req, res) => {
           predicted_at
         )
       `)
-      .eq('user_id', req.user.id)
+      .eq('user_id', req.user.sub)
       .not('prediction_results', 'is', null)  
       .order('uploaded_at', { ascending: false })
 
+    if (req.user.role !== 'admin') {
+      query = query.eq('user_id', req.user.sub)
+    }
+
+    const { data, error } = await query
     if (error) throw error
 
     res.json({ inspections: data })
   } catch (err) {
-    console.error('[inspections]', err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -74,7 +78,7 @@ router.get('/:id', requireAuth, async (req, res) => {
         )
       `)
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)   // pastikan hanya bisa akses milik sendiri
+      .eq('user_id', req.user.sub)   // pastikan hanya bisa akses milik sendiri
       .single()
 
     if (error) {

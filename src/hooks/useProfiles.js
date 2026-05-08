@@ -1,6 +1,6 @@
 // src/hooks/useProfiles.js
 import { useState, useEffect } from 'react'
-import api from '@/services/api'
+import api from '@/lib/api'
 
 export function useProfile() {
   const [profile, setProfile] = useState(null)
@@ -10,9 +10,8 @@ export function useProfile() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // baseURL = http://localhost:4000/api  →  full URL: /api/user/me
-        const res = await api.get('/user/me')
-        setProfile(res.data.user.profile)
+        const res = await api.get('/users/me')
+        setProfile(res.data.user)
       } catch (err) {
         setError(err.response?.data?.error || 'Gagal memuat profil')
       } finally {
@@ -24,4 +23,4 @@ export function useProfile() {
   }, [])
 
   return { profile, loading, error }
-}
+}

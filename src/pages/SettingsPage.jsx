@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { User, Bell, Shield, Moon, Lock, Smartphone, Mail } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // State untuk navigasi
   const [profile, setProfile] = useState({
     name: user?.name || '',

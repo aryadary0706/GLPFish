@@ -1,9 +1,9 @@
 // src/pages/DashboardPage.jsx
 import { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { useInspections } from '@/hooks/useInspection'
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react'
-import api from '@/services/api'
+import api from '@/lib/api'
 import HistoryRow from '../components/ui/RiwayatInput'
 import SlotUpload from '../components/ui/uploadForm'
 

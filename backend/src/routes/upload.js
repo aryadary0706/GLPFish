@@ -35,7 +35,7 @@ router.post(
       return res.status(400).json({ error: 'Tidak ada file yang diunggah.' })
     }
 
-    const user    = req.user
+    const user    = { id: req.user.sub, ...req.user }
     const results = []
     const errors  = []
 
@@ -113,7 +113,7 @@ router.post(
 
       const eyeFile  = req.files.eye[0]
       const gillFile = req.files.gill[0]
-      const user     = req.user
+      const user     = { id: req.user.sub, ...req.user }
 
       // 2. Cek model server siap
       const modelReady = await checkModelHealth()
