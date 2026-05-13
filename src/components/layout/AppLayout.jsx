@@ -15,6 +15,7 @@ export default function AppLayout() {
   const { logout, user, loading } = useAuth();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
+  const { user } = useAuth();
 
   //metadata user name
   const displayName = user.name || 'Tidak termuat'
@@ -24,6 +25,8 @@ export default function AppLayout() {
     await logout()
     navigate('/login');
   };
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'admin@glpfish.com';
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
