@@ -81,7 +81,7 @@ export default function DashboardPage() {
       {/* Welcome Section */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900">
-          Halo, {user?.user_metadata?.name ?? user?.email}!
+          Halo, {user?.name}!
         </h1>
         <p className="text-slate-500 mt-1">Unggah foto mata dan insang ikan untuk uji kesegaran</p>
       </div>

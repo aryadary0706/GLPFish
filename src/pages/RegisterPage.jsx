@@ -25,6 +25,14 @@ export default function RegisterPage() {
     e.preventDefault()
     setServerError('')
 
+    const validationErrors = validateRegister(values)
+    if (Object.keys(validationErrors).length > 0) {
+      Object.entries(validationErrors).forEach(([field, message]) => {
+        setError(field, message)
+      })
+      return
+    }
+
     const { email, password, name, role } = values
     const result = await register({ email, password, name, role })
     if (!result.success) {

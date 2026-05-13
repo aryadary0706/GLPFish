@@ -15,7 +15,6 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Semua field wajib diisi' })
   role = role || 'staff'
 
-  // Cek duplikat email
   const { data: existing } = await supabase
     .from('users')
     .select('id')
