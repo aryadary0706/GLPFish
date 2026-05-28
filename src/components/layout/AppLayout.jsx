@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import {
   LayoutDashboard,
   LogOut,
@@ -12,13 +12,17 @@ import { useState } from 'react';
 import NotificationList from './NotificationList';
 
 export default function AppLayout() {
-  const { logout, user } = useAuth();
+  const { logout, user, loading } = useAuth();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   // const { user } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  //metadata user name
+  const displayName = user.name || 'Tidak termuat'
+  const displayRole = user.role || '-'
+
+  const handleLogout = async () => {
+    await logout()
     navigate('/login');
   };
 

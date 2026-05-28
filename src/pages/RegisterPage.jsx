@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { useForm } from '@/hooks/useForm'
 import { validateRegister } from '@/utils/validators'
 
@@ -8,7 +8,7 @@ import { validateRegister } from '@/utils/validators'
  * RegisterPage — creates a new inspector account.
  */
 export default function RegisterPage() {
-  const { register, loading } = useAuth()
+  const { register,loading } = useAuth()
   const navigate = useNavigate()
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -17,6 +17,7 @@ export default function RegisterPage() {
     name: '',
     email: '',
     password: '',
+    role: 'staff',
     confirmPassword: '',
   })
 
@@ -24,18 +25,21 @@ export default function RegisterPage() {
     e.preventDefault()
     setServerError('')
 
-    const fieldErrors = validateRegister(values)
-    if (Object.keys(fieldErrors).length) {
-      Object.entries(fieldErrors).forEach(([field, msg]) => setError(field, msg))
+    const validationErrors = validateRegister(values)
+    if (Object.keys(validationErrors).length > 0) {
+      Object.entries(validationErrors).forEach(([field, message]) => {
+        setError(field, message)
+      })
       return
     }
 
-    const result = await register(values)
-    if (result.success) {
-      navigate('/dashboard', { replace: true })
-    } else {
+    const { email, password, name, role } = values
+    const result = await register({ email, password, name, role })
+    if (!result.success) {
       setServerError(result.message)
+      return
     }
+    navigate('/login')
   }
 
   return (

@@ -1,83 +1,80 @@
-// src/context/AuthContext.jsx
-import { createContext, useState, useEffect, useCallback, useContext } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../../firebase";
-import { authService } from "../services/authService";
+import { createContext, useState, useEffect, useCallback } from 'react'
+import { AuthService  } from '@/services/AuthServices'
 
-export const AuthContext = createContext(null);
-
-const ERROR_MAP = {
-  "auth/user-not-found": "Email tidak terdaftar",
-  "auth/wrong-password": "Password salah",
-  "auth/invalid-credential": "Email atau password salah",
-  "auth/email-already-in-use": "Email sudah digunakan",
-  "auth/weak-password": "Password minimal 6 karakter",
-  "auth/invalid-email": "Format email tidak valid",
-  "auth/too-many-requests": "Terlalu banyak percobaan, coba lagi nanti",
-  "auth/network-request-failed": "Tidak ada koneksi internet",
-};
+export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [user,    setUser]    = useState(null)
+  const [loading, setLoading] = useState(true)
 
+  // Restore session dari token yang tersimpan
   useEffect(() => {
-    return onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(
-        firebaseUser
-          ? {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-              email: firebaseUser.email,
-            }
-          : null
-      );
-    });
-  }, []);
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    AuthService.getMe()
+      .then(setUser)
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Handle token expired dari interceptor axios
+  useEffect(() => {
+    const handler = () => setUser(null)
+    window.addEventListener('unauthorized', handler)
+    return () => window.removeEventListener('unauthorized', handler)
+  }, [])
 
   const login = useCallback(async ({ email, password }) => {
-    setLoading(true);
-    setError(null);
     try {
-      await authService.login(email, password);
-      return { success: true };
+      const { user, token } = await AuthService.login({ email, password })
+      console.log('token:', token)
+      console.log('user:', user)
+      localStorage.setItem('token', token)
+      setUser(user)
+      return { success: true }
     } catch (err) {
-      const msg = ERROR_MAP[err.code] ?? "Terjadi kesalahan, coba lagi";
-      setError(msg);
-      return { success: false, message: msg };
-    } finally {
-      setLoading(false);
+      return { success: false, message: err.response?.data?.error ?? 'Login gagal' }
     }
-  }, []);
+  }, [])
 
-  const register = useCallback(async ({ name, email, password }) => {
-    setLoading(true);
-    setError(null);
+  const register = useCallback(async ({ email, password, name, role  }) => {
     try {
-      await authService.register(name, email, password);
-      return { success: true };
+      const { user, token } = await AuthService.register({ email, password, name, role })
+      localStorage.setItem('token', token)
+      setUser(user)
+      return { success: true }
     } catch (err) {
-      const msg = ERROR_MAP[err.code] ?? "Terjadi kesalahan, coba lagi";
-      setError(msg);
-      return { success: false, message: msg };
-    } finally {
-      setLoading(false);
+      return { success: false, message: err.response?.data?.error ?? 'Registrasi gagal' }
     }
-  }, []);
+  }, [])
 
-  const logout = useCallback(() => authService.logout(), []);
-  const clearError = useCallback(() => setError(null), []);
+  const logout = useCallback(async () => {
+    try {
+      await AuthService.logout()
+    } finally {
+      localStorage.removeItem('token')
+      setUser(null)
+    }
+  }, [])
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const user = await AuthService.getMe()
+      setUser(user)
+    } catch {
+      // token invalid, paksa logout
+      localStorage.removeItem('token')
+      setUser(null)
+    }
+  }, [])
+
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, register, logout, clearError }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
-  return ctx;
+  )
 }

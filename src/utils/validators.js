@@ -30,7 +30,10 @@ export function validateLogin({ email, password }) {
 export function validateRegister({ name, email, password, confirmPassword }) {
   const errors = validateLogin({ email, password })
   if (!isRequired(name))               errors.name            = 'Name is required'
-  if (password !== confirmPassword)    errors.confirmPassword = 'Passwords do not match'
-  if (!isRequired(confirmPassword))    errors.confirmPassword = 'Please confirm your password'
+  if (!isRequired(confirmPassword)) {
+    errors.confirmPassword = 'Please confirm your password'
+  } else if (password !== confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match'
+  }
   return errors
 }
