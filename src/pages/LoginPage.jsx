@@ -35,6 +35,10 @@ export default function LoginPage() {
       setServerError(result.message)
     }
   }
+  const handleAdminLogin = () => {
+    localStorage.setItem('isAdmin', 'true');
+    navigate('/dashboard', { state: { isAdmin: true } });
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -148,7 +152,7 @@ export default function LoginPage() {
             {/* Admin Login Button */}
             <button
               type="button"
-              onClick={() => navigate('/admin/login')}
+              onClick={handleAdminLogin}
               className="w-full border-2 border-[#FB7D00] text-[#FB7D00] font-semibold py-3 rounded-md hover:bg-[#FB7D00]/5 transition"
             >
               Login as Admin
