@@ -31,6 +31,7 @@ export default function LoginPage() {
     const result = await login({ email, password })
     if (!result.success) {
       setServerError(result.message)
+      return
     }
     navigate('/')
   }
