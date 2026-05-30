@@ -2,20 +2,44 @@
 import { useState, useCallback, useEffect } from 'react'
 import api from '@/lib/api'
 
-// ─────────────────────────────────────────────────────────────
-// Hook: useUploadPredict
-// Kirim foto mata + insang → dapat hasil prediksi langsung
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// KONTRAK API — upload & predict per ikan
+// ═══════════════════════════════════════════════════════════════
+//
+// POST /api/upload/predict  (multipart/form-data)
+//   Fields:
+//     eye      : File  — foto mata ikan
+//     gill     : File  — foto insang ikan
+//     batch_id?: string — ID batch (opsional, wajib saat batch ada di DB)
+//
+//   Response: {
+//     success:    true,
+//     image_id:   string,   // UUID dari tabel images
+//     prediction: {
+//       grade:          "A" | "B" | "C",
+//       label:          string,           // "Grade A - Premium"
+//       warna:          string,
+//       layak_ekspor:   boolean,
+//       mata:   { kelas, status, confidence: number, probabilitas: object },
+//       insang: { kelas, status, confidence: number, probabilitas: object },
+//       waktu_proses_ms: number,
+//       timestamp:       string
+//     }
+//   }
+//
+// ═══════════════════════════════════════════════════════════════
+
 export function useUploadPredict() {
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState(null)
   const [prediction, setPrediction] = useState(null)
 
   /**
-   * @param {File} eyeFile   - File foto mata dari <input type="file">
-   * @param {File} gillFile  - File foto insang dari <input type="file">
+   * @param {File}    eyeFile   — foto mata
+   * @param {File}    gillFile  — foto insang
+   * @param {string=} batchId   — ID batch (opsional, kirim saat batch sudah dibuat di backend)
    */
-  const uploadAndPredict = useCallback(async (eyeFile, gillFile) => {
+  const uploadAndPredict = useCallback(async (eyeFile, gillFile, batchId) => {
     setLoading(true)
     setError(null)
     setPrediction(null)
@@ -23,6 +47,8 @@ export function useUploadPredict() {
     const formData = new FormData()
     formData.append('eye',  eyeFile)
     formData.append('gill', gillFile)
+    // Kirim batch_id jika tersedia — backend simpan ke kolom batch_id di tabel images
+    if (batchId) formData.append('batch_id', batchId)
 
     try {
       const { data } = await api.post('/upload/predict', formData, {
@@ -49,10 +75,27 @@ export function useUploadPredict() {
   return { uploadAndPredict, loading, error, prediction, reset }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Hook: useInspections
-// Ambil semua riwayat inspeksi milik user dari DB
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// KONTRAK API — riwayat inspeksi
+// ═══════════════════════════════════════════════════════════════
+//
+// GET /api/inspections
+//   Response: {
+//     inspections: [{
+//       id, file_name, storage_path, uploaded_at,
+//       prediction_results: {
+//         grade, label_text, warna, exportable,
+//         confidence_score, eyes_status, eyes_confidence_score,
+//         gill_status, gill_confidence_score, predicted_at
+//       }
+//     }]
+//   }
+//
+// GET /api/inspections/:id
+//   Response: { inspection: <same shape + storage_path_gill + waktu_proses_ms + raw_output> }
+//
+// ═══════════════════════════════════════════════════════════════
+
 export function useInspections() {
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState(null)
@@ -61,13 +104,10 @@ export function useInspections() {
   const fetchInspections = useCallback(async () => {
     setLoading(true)
     setError(null)
-
     try {
       const { data } = await api.get('/inspections')
-      // data.inspections: array of { id, file_name, storage_path, uploaded_at, prediction_results }
       setInspections(data.inspections)
       return data.inspections
-
     } catch (err) {
       const message = err.response?.data?.error || 'Gagal mengambil data inspeksi.'
       setError(message)
@@ -77,37 +117,23 @@ export function useInspections() {
     }
   }, [])
 
-  // Auto-fetch saat pertama mount
-  useEffect(() => {
-    fetchInspections()
-  }, [fetchInspections])
+  useEffect(() => { fetchInspections() }, [fetchInspections])
 
-  // refresh = alias fetchInspections, kompatibel dengan DashboardPage
   return { fetchInspections, refresh: fetchInspections, inspections, loading, error }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Hook: useInspectionDetail
-// Ambil detail satu inspeksi berdasarkan image_id
-// ─────────────────────────────────────────────────────────────
 export function useInspectionDetail() {
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState(null)
   const [inspection, setInspection] = useState(null)
 
-  /**
-   * @param {string} imageId - UUID dari tabel images
-   */
   const fetchDetail = useCallback(async (imageId) => {
     setLoading(true)
     setError(null)
-
     try {
       const { data } = await api.get(`/inspections/${imageId}`)
-      // data.inspection: { id, file_name, storage_path, prediction_results: { grade, ... } }
       setInspection(data.inspection)
       return data.inspection
-
     } catch (err) {
       const message = err.response?.status === 404
         ? 'Inspeksi tidak ditemukan.'

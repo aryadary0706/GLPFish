@@ -12,6 +12,10 @@ import RegisterPage from './pages/RegisterPage'
 import StatisticPage from './pages/StatisticPage'
 import NotFoundPage from './pages/NotFoundPage'
 import SettingsPage from './pages/SettingsPage'
+import HasilGradingPage from './pages/HasilGradingPage'
+import AdminPage from './pages/AdminPage'
+import AdminUsersPage from './pages/AdminUsersPage'
+import AdminUserDetailPage from './pages/AdminUserDetailPage'
 
 // Import Halaman Baru (Sesuaikan path-nya jika berbeda)
 import { CreateBatchPage } from './pages/CreateBatchPage'
@@ -45,9 +49,17 @@ export default function App() {
           
           {/* Rute Baru: Upload Photo */}
           <Route path="batches/:batchId/upload" element={<UploadWrapper />} />
-          
-          {/* Statistic route (Opsional jika masih dipakai) */}
+
+          {/* Hasil Grading: muncul saat batch completed diklik */}
+          <Route path="batches/:batchId/hasil" element={<HasilGradingPage />} />
+
+          {/* Statistic / Distribusi */}
           <Route path="statistic" element={<StatisticPage />} />
+
+          {/* Admin dashboard */}
+          <Route path="admin" element={<AdminPage />} />
+          <Route path="admin/users" element={<AdminUsersPage />} />
+          <Route path="admin/users/:userId" element={<AdminUserDetailPage />} />
         </Route>
 
         {/* Settings Route */}

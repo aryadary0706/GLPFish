@@ -5,14 +5,18 @@ import { Sidebar } from '../components/ui/Sidebar';
 export default function DashboardLayout() {
   const location = useLocation();
   
-  // Logika sederhana untuk menentukan ikon menu mana yang sedang aktif
-  // Default ke 'gallery' karena halaman pertama yang muncul adalah Create Batch
-  let activeMenu: 'gallery' | 'camera' | 'stats' = 'gallery';
-  
+  let activeMenu: 'gallery' | 'camera' | 'stats' | 'settings' | 'admin' = 'gallery';
+
   if (location.pathname.includes('/upload')) {
     activeMenu = 'camera';
   } else if (location.pathname.includes('/statistic')) {
     activeMenu = 'stats';
+  } else if (location.pathname.includes('/settings')) {
+    activeMenu = 'settings';
+  } else if (location.pathname.startsWith('/admin')) {
+    activeMenu = 'admin';
+  } else if (location.pathname.includes('/hasil')) {
+    activeMenu = 'gallery';
   }
 
   return (
