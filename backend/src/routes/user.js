@@ -13,9 +13,6 @@ router.get('/me', requireAuth, async (req, res) => {
     .eq('id', req.user.sub)
     .single()
 
-    console.log('req.user:', req.user)
-    console.log('supabase error:', error)
-
   if (error) return res.status(404).json({ error: 'User tidak ditemukan' })
 
   res.json({ user: data })

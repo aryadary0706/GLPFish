@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BarChart2, User, Camera, Images, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import logoGanusa from '@/assets/Logo_ganusa.png';
+import { useAuth } from '../../hooks/useAuth'
+import logoGanusa from '../../assets/logo-ganusa.png';
 
 export type ActiveMenu = 'camera' | 'gallery' | 'stats' | 'settings' | 'admin';
 

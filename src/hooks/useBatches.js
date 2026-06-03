@@ -60,16 +60,16 @@ export function useBatches() {
     setError(null)
     try {
       // ── Aktifkan saat backend siap: ──────────────────────────
-      // const { data } = await api.get('/batches')
-      // // Map ke format yang sama dengan mock: { id, date, count, status }
-      // setBatches(data.batches.map(b => ({
-      //   id:     b.id,
-      //   date:   new Date(b.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-      //   count:  b.status === 'incomplete'
-      //             ? `${b.total}/${b.estimasi_jumlah}`
-      //             : String(b.total),
-      //   status: b.status === 'completed' ? 'Completed' : 'Incomplete',
-      // })))
+      const { data } = await api.get('/batches')
+      // Map ke format yang sama dengan mock: { id, date, count, status }
+      setBatches(data.batches.map(b => ({
+        id:     b.id,
+        date:   new Date(b.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        count:  b.status === 'incomplete'
+                  ? `${b.total}/${b.estimasi_jumlah}`
+                  : String(b.total),
+        status: b.status === 'completed' ? 'Completed' : 'Incomplete',
+      })))
       // ─────────────────────────────────────────────────────────
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal memuat daftar batch')
@@ -82,13 +82,13 @@ export function useBatches() {
 
   const createBatch = useCallback(async (formData) => {
     // ── Aktifkan saat backend siap: ──────────────────────────
-    // const { data } = await api.post('/batches', formData)
-    // return data.batch   // { id: "B-2406-016", status: "incomplete", ... }
+    const { data } = await api.post('/batches', formData)
+    return data.batch 
     // ─────────────────────────────────────────────────────────
 
-    // Mock: return fake batch ID
-    console.warn('[useBatches] createBatch mock — backend belum siap')
-    return { id: 'B-2406-016', status: 'incomplete' }
+    // // Mock: return fake batch ID
+    // console.warn('[useBatches] createBatch mock — backend belum siap')
+    // return { id: 'B-2406-016', status: 'incomplete' }
   }, [])
 
   return { fetchBatches, createBatch, batches, loading, error }
