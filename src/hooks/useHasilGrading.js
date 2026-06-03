@@ -85,8 +85,8 @@ export function useHasilGrading() {
     setError(null)
     try {
       // ── Aktifkan saat backend siap: ──────────────────────────
-      // const { data } = await api.get(`/batches/${batchId}/hasil`)
-      // setGrading(data.grading)
+      const { data } = await api.get(`/batches/${batchId}/hasil`)
+      setGrading(data.grading)
       // ─────────────────────────────────────────────────────────
 
       const base = MOCK_BY_BATCH[batchId] ?? { ...FALLBACK_MOCK }
