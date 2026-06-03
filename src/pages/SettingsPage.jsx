@@ -1,11 +1,13 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useForm } from "@/hooks/useForm";
-import { User, Bell, Shield, Lock, Smartphone, Mail } from "lucide-react";
+import { User, Bell, Shield, Lock, Smartphone, Mail, ArrowLeft } from "lucide-react";
 import FeedbackMessage from "../components/ui/FeedbackMessage";
 import api from "@/lib/api";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const { user, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [profileFeedback, setProfileFeedback] = useState({ type: "", message: "" });
@@ -92,13 +94,26 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Pengaturan</h1>
-        <p className="text-slate-500 text-sm">
-          Kelola preferensi akun dan aplikasi Anda
-        </p>
+    <div className="min-h-screen bg-[#fafafa]">
+      {/* Top bar with back button */}
+      <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center gap-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group"
+        >
+          <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+            <ArrowLeft size={16} />
+          </span>
+          <span className="text-sm font-medium">Kembali</span>
+        </button>
+        <div className="h-5 w-px bg-slate-200" />
+        <div>
+          <h1 className="text-lg font-bold text-slate-800 leading-tight">Pengaturan</h1>
+          <p className="text-xs text-slate-500">Kelola preferensi akun dan aplikasi Anda</p>
+        </div>
       </div>
+
+      <div className="p-8 space-y-6">
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Navigasi Pengaturan Samping */}
@@ -318,6 +333,7 @@ export default function SettingsPage() {
             </section>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
