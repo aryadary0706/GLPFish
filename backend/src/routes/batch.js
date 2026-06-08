@@ -35,7 +35,7 @@ router.post('/', requireAuth, async (req, res) => {
           status: 'pending',
           preprocessed_status: 'incomplete',
           lokasi: lokasi,
-          estimasi_jumlah: estimasi_jumlah,
+          fish_count: estimasi_jumlah,
           berat_total: berat_total,
           catatan: catatan
         }

@@ -8,8 +8,8 @@ import rateLimit from 'express-rate-limit'
 // ── Import Routes ─────────────────────────────────────────
 import authRoutes       from './routes/auth.js'
 import userRoutes       from './routes/user.js'
-import uploadRoutes     from './routes/upload.js'     // POST /images
-import predictRoutes    from './routes/predict.js'    // POST /predict
+import uploadRoutes     from './routes/upload.js'
+import predictRoutes    from './routes/predict.js'
 import inspectionRoutes from './routes/inspections.js'
 
 // Route Batch (Jika Anda memisahkannya menjadi beberapa file)
@@ -49,10 +49,10 @@ app.use('/api/auth',        authRoutes)
 app.use('/api/users',       userRoutes)
 
 // Route Upload & Predict (Modular)
-app.use('/api/upload',      uploadRoutes)   // Menangani POST /api/upload/images
-app.use('/api/upload',      predictRoutes)  // Menangani POST /api/upload/predict
+app.use('/api/upload',      uploadRoutes)
+app.use('/api/upload',      predictRoutes)
 
-app.use('/api/inspections', inspectionRoutes)
+// app.use('/api/inspections', inspectionRoutes)
 
 /**
  * ⚠️ ATURAN PENTING UNTUK ROUTE YANG DIPISAH:
