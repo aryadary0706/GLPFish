@@ -10,7 +10,7 @@ router.get('/me', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('users') 
     .select('id, name, email, role, created_at')
-    .eq('id', req.user.sub)
+    .eq('id', req.user.id)
     .single()
 
   if (error) return res.status(404).json({ error: 'User tidak ditemukan' })
@@ -30,7 +30,7 @@ router.put('/update', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('users')
     .update({ name: name.trim() })
-    .eq('id', req.user.sub)
+    .eq('id', req.user.id)
     .select('id, name, email, role, created_at')  
     .single()
 
@@ -54,7 +54,7 @@ router.put('/update-password', requireAuth, async (req, res) => {
   const { data: userData, error: fetchError } = await supabase
     .from('users')
     .select('password')
-    .eq('id', req.user.sub)
+    .eq('id', req.user.id)
     .single()
  
   if (fetchError || !userData) {
@@ -78,7 +78,7 @@ router.put('/update-password', requireAuth, async (req, res) => {
   const { error: updateError } = await supabase
     .from('users')
     .update({ password: newHash })
-    .eq('id', req.user.sub)
+    .eq('id', req.user.id)
  
   if (updateError) return res.status(500).json({ error: 'Gagal update password' })
  
