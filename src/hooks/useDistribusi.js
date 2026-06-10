@@ -75,9 +75,9 @@ export function useDistribusi() {
     setError(null)
     try {
       // ── Aktifkan saat backend siap: ──────────────────────────
-      // const { data } = await api.get('/batches/distribusi')
-      // setStats(data.stats)
-      // setBatches(data.batches)
+      const { data } = await api.get('/batches/distribusi')
+      setStats(data.stats)
+      setBatches(data.batches)
       // ─────────────────────────────────────────────────────────
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal memuat data distribusi')

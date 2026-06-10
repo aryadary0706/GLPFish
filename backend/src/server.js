@@ -4,11 +4,20 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import dotenv from 'dotenv'
 import rateLimit from 'express-rate-limit'
+
+// ── Import Routes ─────────────────────────────────────────
 import authRoutes       from './routes/auth.js'
 import userRoutes       from './routes/user.js'
 import uploadRoutes     from './routes/upload.js'
+import predictRoutes    from './routes/predict.js'
 import inspectionRoutes from './routes/inspections.js'
 import adminRoutes from './routes/admin.js'
+
+// Route Batch (Jika Anda memisahkannya menjadi beberapa file)
+import batchesRoutes     from './routes/batch.js'
+import batchStatusRoutes from './routes/batchStatus.js'
+import summaryRoutes     from './routes/summary.js'
+import batchResultRoutes from './routes/batchResult.js'
 
 dotenv.config({ path: '.env.local' })
 
@@ -32,18 +41,34 @@ app.use(cors({
 }))
 
 // ── Body Parser ───────────────────────────────────────────
-// Skip express.json() untuk route upload — multer yang handle body parsing-nya
-app.use((req, res, next) => {
-  if (req.originalUrl.startsWith('/api/upload')) return next()
-  express.json()(req, res, next)
-})
+// express.json() aman digunakan secara global karena secara otomatis 
+// mengabaikan request yang bertipe multipart/form-data (Multer)
+app.use(express.json())
 
-// ── Routes ────────────────────────────────────────────────
+// ── Routes Registration ───────────────────────────────────
 app.use('/api/auth',        authRoutes)
-app.use('/api/users',        userRoutes)
+app.use('/api/users',       userRoutes)
+
+// Route Upload & Predict (Modular)
 app.use('/api/upload',      uploadRoutes)
+
 app.use('/api/inspections', inspectionRoutes)
 app.use('/api/admin', adminRoutes)
+
+app.use('/api/upload',      predictRoutes)
+
+// app.use('/api/inspections', inspectionRoutes)
+
+/**
+ * ⚠️ ATURAN PENTING UNTUK ROUTE YANG DIPISAH:
+ * Urutkan dari route dengan path statis/spesifik terlebih dahulu, 
+ * baru kemudian route dinamis yang menggunakan parameter seperti (:id atau :batchId).
+ */
+app.use('/api/batches', summaryRoutes)     // Misal untuk GET /api/batches/distribusi
+app.use('/api/batches', batchStatusRoutes)  // Misal untuk PATCH /api/batches/:batchId/status
+app.use('/api/batches', batchResultRoutes)  // Misal untuk GET /api/batches/:batchId/hasil
+app.use('/api/batches', batchesRoutes)      // Menangani GET / dan POST / dasar
+
 
 // ── Health check ──────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
