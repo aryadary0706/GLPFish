@@ -51,13 +51,11 @@ app.use('/api/users',       userRoutes)
 
 // Route Upload & Predict (Modular)
 app.use('/api/upload',      uploadRoutes)
-
-app.use('/api/inspections', inspectionRoutes)
-app.use('/api/admin', adminRoutes)
-
 app.use('/api/upload',      predictRoutes)
 
-// app.use('/api/inspections', inspectionRoutes)
+// Route fungsionalitas admin
+app.use('/api/admin', adminRoutes)
+
 
 /**
  * ⚠️ ATURAN PENTING UNTUK ROUTE YANG DIPISAH:
