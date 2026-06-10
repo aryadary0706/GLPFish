@@ -126,3 +126,50 @@ Replace the remote URL with your actual GitHub repo URL.
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint |
+
+## Turn On Model AI
+
+Setelah mendapatkan folder model AI, ikuti langkah-langkah berikut untuk menjalankannya.
+
+### 1. Buka Command Prompt (CMD)
+
+Buka CMD dan arahkan ke folder model AI:
+
+```bash
+cd D:\Repo\compro\model\fish_quality_app
+```
+
+### 2. Aktifkan Virtual Environment
+
+```bash
+venv\Scripts\activate
+```
+
+Jika berhasil, nama environment akan muncul di awal baris, contohnya:
+
+```
+(venv) D:\Repo\compro\model\fish_quality_app>
+```
+
+### 3. Jalankan Server Model AI
+
+```bash
+python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Server model AI akan berjalan di `http://localhost:8000`
+
+### 4. Mematikan Server Model AI
+
+Untuk menghentikan server, tekan:
+
+```
+Ctrl + C
+```
+
+Lalu nonaktifkan virtual environment:
+
+```bash
+deactivate
+```
+

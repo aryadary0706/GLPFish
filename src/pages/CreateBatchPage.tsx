@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { FormField } from '../components/ui/FormField';
-import api from '@/lib/api';
+import api from '../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BatchStatus = 'Completed' | 'Incomplete';

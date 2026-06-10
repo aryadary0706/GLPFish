@@ -35,7 +35,7 @@ router.post('/register', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
 
   const token = jwt.sign(
-    { sub: user.id, email: user.email, name: user.name, role: user.role },
+    { id: user.id, email: user.email, name: user.name, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: TOKEN_TTL }
   )
@@ -63,7 +63,7 @@ router.post('/login', async (req, res) => {
   if (!valid) return res.status(401).json({ error: 'Email atau password salah' })
 
   const token = jwt.sign(
-    { sub: user.id, email: user.email, name: user.name, role: user.role },
+    { id: user.id, email: user.email, name: user.name, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: TOKEN_TTL }
   )

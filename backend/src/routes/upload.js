@@ -1,226 +1,203 @@
-// src/routes/upload.js
-import { Router } from 'express'
-import multer from 'multer'
-import { requireAuth } from '../middleware/auth.js'
-import { supabase } from '../lib/supabase.js'
-import { checkModelHealth, predictFishQuality } from '../lib/model.js'
+import { Router } from "express";
+import multer from "multer";
+import { requireAuth } from "../middleware/auth.js";
+import { supabase } from "../lib/supabase.js";
 
-const router = Router()
+const router = Router();
 
 const fileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp']
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
   if (allowed.includes(file.mimetype)) {
-    cb(null, true)
+    cb(null, true);
   } else {
-    cb(new Error(`Format file '${file.fieldname}' tidak didukung. Gunakan JPG, PNG, atau WEBP.`), false)
+    cb(
+      new Error(
+        `Format file '${file.fieldname}' tidak didukung. Gunakan JPG, PNG, atau WEBP.`,
+      ),
+      false,
+    );
   }
-}
+};
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB sesuai docs API model
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter,
-})
+});
+
+function _ext(mimetype) {
+  const map = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+  };
+  return map[mimetype] ?? ".jpg";
+}
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/upload/images
-// Upload foto biasa (tanpa prediksi) — untuk keperluan lain
+// Upload foto mata + insang, simpan ke storage & DB tanpa prediksi
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/images',
-  requireAuth,
-  upload.array('files', 10),
-  async (req, res) => {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'Tidak ada file yang diunggah.' })
-    }
-
-    const user    = { id: req.user.sub, ...req.user }
-    const results = []
-    const errors  = []
-
-    await Promise.all(
-      req.files.map(async (file) => {
-        try {
-          const fileName = `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`
-          const filePath = `${user.id}/${fileName}`
-
-          const { data: storageData, error: uploadError } = await supabase.storage
-            .from('images')
-            .upload(filePath, file.buffer, {
-              contentType: file.mimetype,
-              upsert: false,
-            })
-
-          if (uploadError) throw uploadError
-
-          const { data: imageRow, error: dbError } = await supabase
-            .from('images')
-            .insert({
-              user_id:      user.id,
-              storage_path: storageData.path,
-              file_name:    file.originalname,
-              mime_type:    file.mimetype,
-              file_size:    file.size,
-            })
-            .select()
-            .single()
-
-          if (dbError) throw dbError
-
-          results.push(imageRow)
-        } catch (err) {
-          console.error(`[upload] ${file.originalname}:`, err.message)
-          errors.push({ file: file.originalname, error: err.message })
-        }
-      })
-    )
-
-    if (results.length === 0) {
-      return res.status(500).json({ error: 'Semua file gagal diunggah.', errors })
-    }
-
-    res.json({
-      message:       `${results.length} file berhasil diunggah`,
-      success_count: results.length,
-      fail_count:    errors.length,
-      data:          results,
-      ...(errors.length > 0 && { errors }),
-    })
-  }
-)
-
-// ─────────────────────────────────────────────────────────────
-// POST /api/upload/predict
-// Upload foto mata + insang → kirim ke model AI → simpan hasil
-// ─────────────────────────────────────────────────────────────
-router.post(
-  '/predict',
+  "/images",
   requireAuth,
   upload.fields([
-    { name: 'eye',  maxCount: 1 },
-    { name: 'gill', maxCount: 1 },
+    { name: "eye", maxCount: 1 },
+    { name: "gill", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
-      // 1. Validasi kedua file wajib ada
+      const { batch_id } = req.body;
+      const userId = req.user.id;
+
       if (!req.files?.eye) {
-        return res.status(400).json({ error: "File 'eye' (foto mata ikan) wajib dikirim." })
+        return res
+          .status(400)
+          .json({ error: "File 'eye' (foto mata ikan) wajib dikirim." });
       }
       if (!req.files?.gill) {
-        return res.status(400).json({ error: "File 'gill' (foto insang ikan) wajib dikirim." })
+        return res
+          .status(400)
+          .json({ error: "File 'gill' (foto insang ikan) wajib dikirim." });
+      }
+      if (!batch_id) {
+        return res.status(400).json({ error: "batch_id wajib disertakan." });
       }
 
-      const eyeFile  = req.files.eye[0]
-      const gillFile = req.files.gill[0]
-      const user     = { id: req.user.sub, ...req.user }
+      const eyeFile = req.files.eye[0];
+      const gillFile = req.files.gill[0];
+      const timestamp = Date.now();
 
-      // 2. Cek model server siap
-      const modelReady = await checkModelHealth()
-      if (!modelReady) {
-        return res.status(503).json({ error: 'Model server tidak tersedia, coba beberapa saat lagi.' })
-      }
+      const eyePath = `${userId}/${batch_id}/${timestamp}_eye${_ext(eyeFile.mimetype)}`;
+      const gillPath = `${userId}/${batch_id}/${timestamp}_gill${_ext(gillFile.mimetype)}`;
 
-      // 3. Upload kedua foto ke Supabase Storage bucket 'images'
-      const timestamp = Date.now()
-      const eyePath   = `${user.id}/${timestamp}_eye${_ext(eyeFile.mimetype)}`
-      const gillPath  = `${user.id}/${timestamp}_gill${_ext(gillFile.mimetype)}`
-
+      // Upload paralel ke storage
       const [eyeUpload, gillUpload] = await Promise.all([
-        supabase.storage.from('images').upload(eyePath, eyeFile.buffer, {
+        supabase.storage.from("images").upload(eyePath, eyeFile.buffer, {
           contentType: eyeFile.mimetype,
           upsert: false,
         }),
-        supabase.storage.from('images').upload(gillPath, gillFile.buffer, {
+        supabase.storage.from("images").upload(gillPath, gillFile.buffer, {
           contentType: gillFile.mimetype,
           upsert: false,
         }),
-      ])
+      ]);
 
-      if (eyeUpload.error)  throw new Error('Gagal upload foto mata: '   + eyeUpload.error.message)
-      if (gillUpload.error) throw new Error('Gagal upload foto insang: ' + gillUpload.error.message)
+      if (eyeUpload.error)
+        throw new Error("Gagal upload foto mata: " + eyeUpload.error.message);
+      if (gillUpload.error)
+        throw new Error("Gagal upload foto insang: " + gillUpload.error.message);
 
-      // 4. Simpan metadata foto ke tabel 'images'
-      //    Simpan path eye sebagai referensi utama, gill disimpan di kolom storage_path_gill
-      const { data: imageRow, error: imageError } = await supabase
-        .from('images')
+      // Simpan metadata ke tabel images
+      const [eyeImgResult, gillImgResult] = await Promise.all([
+        supabase
+          .from("images")
+          .insert({
+            user_id: userId,
+            file_name: eyeFile.originalname,
+            storage_path: eyeUpload.data.path,
+            mime_type: eyeFile.mimetype,
+            file_size: eyeFile.size,
+          })
+          .select()
+          .single(),
+        supabase
+          .from("images")
+          .insert({
+            user_id: userId,
+            file_name: gillFile.originalname,
+            storage_path: gillUpload.data.path,
+            mime_type: gillFile.mimetype,
+            file_size: gillFile.size,
+          })
+          .select()
+          .single(),
+      ]);
+
+      if (eyeImgResult.error) throw eyeImgResult.error;
+      if (gillImgResult.error) throw gillImgResult.error;
+
+      // Hitung fish_index berdasarkan jumlah fishes yang sudah ada
+      const { count, error: countErr } = await supabase
+        .from("fishes")
+        .select("*", { count: "exact", head: true })
+        .eq("batch_id", batch_id);
+
+      if (countErr) throw countErr;
+      const fishIndex = (count || 0) + 1;
+
+      // Simpan ke tabel fishes dengan status pending
+      const { data: fishRow, error: fishErr } = await supabase
+        .from("fishes")
         .insert({
-          user_id:           user.id,
-          file_name:         eyeFile.originalname,
-          storage_path:      eyeUpload.data.path,
-          storage_path_gill: gillUpload.data.path,   // kolom tambahan, lihat catatan di bawah
-          mime_type:         eyeFile.mimetype,
-          file_size:         eyeFile.size,
+          batch_id: batch_id,
+          fish_index: fishIndex,
+          eye_image_id: eyeImgResult.data.id,
+          gill_image_id: gillImgResult.data.id,
+          status: "pending",
         })
         .select()
-        .single()
+        .single();
 
-      if (imageError) throw imageError
+      if (fishErr) throw fishErr;
 
-      // 5. Kirim buffer foto ke FastAPI → dapat hasil prediksi
-      //    (pakai buffer dari memory, tidak perlu download ulang dari storage)
-      const prediction = await predictFishQuality(
-        eyeFile.buffer,  eyeFile.mimetype,
-        gillFile.buffer, gillFile.mimetype,
-      )
+      // Cek apakah jumlah fishes sudah sama dengan fish_count di batch
+      let preprocessed_status = "incomplete";
 
-      // 6. Simpan hasil prediksi ke tabel 'prediction_results'
-      const avgConfidence = (prediction.mata.confidence + prediction.insang.confidence) / 2
+      const { count: fishCount, error: countCheckErr } = await supabase
+        .from("fishes")
+        .select("*", { count: "exact", head: true })
+        .eq("batch_id", batch_id);
 
-      const { error: predError } = await supabase
-        .from('prediction_results')
-        .insert({
-          image_id:          imageRow.id,
-          // Kolom lama (tetap diisi agar tidak breaking)
-          confidence_score:  avgConfidence,
-          // Kolom tambahan hasil ALTER TABLE
-          grade:             prediction.grade,
-          label_text:        prediction.label,
-          warna:             prediction.warna,
-          exportable:      prediction.layak_ekspor,
-          eyes_status:       prediction.mata.status,
-          eyes_confidence_score:   prediction.mata.confidence,
-          gill_status:     prediction.insang.status,
-          gill_confidence_score: prediction.insang.confidence,
-          waktu_proses_ms:   prediction.waktu_proses_ms,
-        })
+      if (!countCheckErr) {
+        const { data: batch } = await supabase
+          .from("batches")
+          .select("fish_count")
+          .eq("id", batch_id)
+          .single();
 
-      if (predError) throw predError
+        if (batch && fishCount >= batch.fish_count) {
+          await supabase
+            .from("batches")
+            .update({ preprocessed_status: "completed" })
+            .eq("id", batch_id);
 
-      // 7. Return hasil lengkap ke frontend
+          preprocessed_status = "completed";
+        }
+      }
+
       res.status(201).json({
-        success:    true,
-        image_id:   imageRow.id,
-        prediction,
-      })
-
+        success: true,
+        fish_id: fishRow.id,
+        fish_index: fishIndex,
+        batch_id: batch_id,
+        preprocessed_status,
+        images: {
+          eye: { id: eyeImgResult.data.id, path: eyeUpload.data.path },
+          gill: { id: gillImgResult.data.id, path: gillUpload.data.path },
+        },
+      });
     } catch (err) {
-      console.error('[upload/predict]', err.message)
-      res.status(500).json({ error: err.message })
+      console.error("[upload/images]", err.message);
+      res.status(500).json({ error: err.message });
     }
-  }
-)
+  },
+);
 
-// ─────────────────────────────────────────────────────────────
-// Error handler multer (ukuran file, format tidak didukung)
-// ─────────────────────────────────────────────────────────────
+// Error handler khusus multer
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: `Ukuran file '${err.field}' terlalu besar. Maksimal 10MB.` })
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        error: `Ukuran file '${err.field}' terlalu besar. Maksimal 5MB.`,
+      });
     }
-    return res.status(400).json({ error: err.message })
+    return res.status(400).json({ error: err.message });
   }
-  if (err.message?.includes('tidak didukung')) {
-    return res.status(400).json({ error: err.message })
+  if (err.message?.includes("tidak didukung")) {
+    return res.status(400).json({ error: err.message });
   }
-  next(err)
-})
+  next(err);
+});
 
-// Helper: ekstensi dari mimetype
-function _ext(mimetype) {
-  const map = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }
-  return map[mimetype] ?? '.jpg'
-}
-
-export default router
+export default router;
