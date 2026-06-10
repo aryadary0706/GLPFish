@@ -68,11 +68,10 @@ router.post('/login', async (req, res) => {
     { expiresIn: TOKEN_TTL }
   )
 
-  const { password: _, ...safeUser } = user  // jangan kirim hash ke client
+  const { password: _, ...safeUser } = user
   res.json({ user: safeUser, token })
 })
 
-// Logout membutuhkan token dari header Authorization
 router.post('/logout', (req, res) => {
   res.json({ message: 'Logout berhasil' })
 })
