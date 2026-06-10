@@ -11,7 +11,6 @@ router.get('/:batchId/hasil', requireAuth, async (req, res) => {
   try {
     const { batchId } = req.params;
 
-    // Ambil data batch, ikan didalamnya, serta hasil prediksi dan gambar ikan tersebut
     const { data: batch, error } = await supabase
       .from('batches')
       .select(`
@@ -39,11 +38,9 @@ router.get('/:batchId/hasil', requireAuth, async (req, res) => {
     let totalIkanProses = 0;
     let fishList = [];
     
-    // Array penampung waktu untuk menghitung durasi proses batch
     let timestamps = [];
 
     if (batch.fishes && batch.fishes.length > 0) {
-      // Urutkan ikan berdasarkan indeks internalnya (fish_index)
       batch.fishes.sort((a, b) => (a.fish_index || 0) - (b.fish_index || 0));
 
       batch.fishes.forEach(fish => {
@@ -51,25 +48,20 @@ router.get('/:batchId/hasil', requireAuth, async (req, res) => {
           const pred = fish.prediction_results[0];
           totalIkanProses++;
           
-          // Normalisasi grade ke uppercase
           const grade = pred.grade?.toUpperCase() || 'C';
           if (grade === 'A') gradeA++;
           else if (grade === 'B') gradeB++;
           else gradeC++;
 
-          // Skala confidence ke persen (0-100) jika di DB berbentuk float 0-1
           const confidence = pred.confidence_score ? Math.round(pred.confidence_score * 100) : 0;
           totalConfidence += confidence;
 
-          // Catat timestamp untuk hitung durasi
           if (pred.predicted_at) {
             timestamps.push(new Date(pred.predicted_at));
           }
 
-          // Generate URL gambar publik dari Supabase Storage jika storage_path ada
           let imageUrl = null;
           if (fish.images?.storage_path) {
-            // Ganti 'fish-images' dengan nama bucket storage Anda yang sebenarnya
             const { data: publicUrlData } = supabase.storage
               .from('fish-images') 
               .getPublicUrl(fish.images.storage_path);
@@ -77,7 +69,7 @@ router.get('/:batchId/hasil', requireAuth, async (req, res) => {
           }
 
           fishList.push({
-            id: fish.id, // atau pakai fish.fish_index jika ingin angka sekuensial murni
+            id: fish.id,
             name: `fish #${fish.fish_index || totalIkanProses}`,
             grade: grade,
             confidence: confidence,
@@ -87,10 +79,8 @@ router.get('/:batchId/hasil', requireAuth, async (req, res) => {
       });
     }
 
-    // Kalkulasi rata-rata confidence
     const avgConfidence = totalIkanProses > 0 ? Math.round(totalConfidence / totalIkanProses) : 0;
 
-    // Kalkulasi durasi "MM:SS" dari selisih waktu prediksi terlama & terbaru
     let durationStr = "00:00";
     if (timestamps.length > 1) {
       const minTime = new Date(Math.min(...timestamps));

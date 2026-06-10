@@ -4,9 +4,7 @@ import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
-// ==========================================
 // PATCH /api/batches/:batchId/status
-// ==========================================
 router.patch('/:batchId/status', requireAuth, async (req, res) => {
   try {
     const { batchId } = req.params;

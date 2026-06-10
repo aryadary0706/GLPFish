@@ -5,7 +5,8 @@ import bcrypt from 'bcrypt'
 
 const router = Router()
 
-// ─── GET /me ─────────────────────────────────────────────
+// GET /me
+// Ambil data user yang login saat ini 
 router.get('/me', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('users') 
@@ -17,7 +18,8 @@ router.get('/me', requireAuth, async (req, res) => {
   res.json({ user: data })
 })
 
-// ─── PUT /update (nama) ───────────────────────────────────
+// PUT /update
+// Melakukan update pada nama (string)
 router.put('/update', requireAuth, async (req, res) => {
   const { name } = req.body
 
@@ -38,10 +40,11 @@ router.put('/update', requireAuth, async (req, res) => {
   res.json({ message: 'Profil berhasil diupdate', user: data })
 })
 
+// PUT /update-password
+// Melakukan update pada password (string)
 router.put('/update-password', requireAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body
  
-  // Validasi input
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Semua field password wajib diisi' })
   }
@@ -49,7 +52,6 @@ router.put('/update-password', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Password baru minimal 6 karakter' })
   }
  
-  // Ambil password hash user saat ini dari DB
   const { data: userData, error: fetchError } = await supabase
     .from('users')
     .select('password')
@@ -60,19 +62,16 @@ router.put('/update-password', requireAuth, async (req, res) => {
     return res.status(404).json({ error: 'User tidak ditemukan' })
   }
  
-  // Verifikator password lama
   const isMatch = await bcrypt.compare(currentPassword, userData.password)
   if (!isMatch) {
     return res.status(401).json({ error: 'Kata sandi lama tidak sesuai' })
   }
  
-  // Condition: password baru tidak boleh sama dengan password lama
   const isSamePassword = await bcrypt.compare(newPassword, userData.password)
   if (isSamePassword) {
     return res.status(400).json({ error: 'Kata sandi baru tidak boleh sama dengan kata sandi saat ini' })
   }
  
-  // simpan password baru
   const newHash = await bcrypt.hash(newPassword, 10)
   const { error: updateError } = await supabase
     .from('users')

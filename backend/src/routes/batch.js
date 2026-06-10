@@ -10,9 +10,7 @@ const formatIndonesianDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('id-ID', options);
 };
 
-// ==========================================
 // 1. POST /api/batches
-// ==========================================
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { jenis, tanggal, lokasi, estimasi_jumlah, berat_total, catatan } = req.body;
@@ -62,9 +60,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// ==========================================
 // 2. GET /api/batches
-// ==========================================
 router.get('/', requireAuth,async (req, res) => {
   try {
     const { status } = req.query;

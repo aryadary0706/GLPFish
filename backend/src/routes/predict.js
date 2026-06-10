@@ -5,11 +5,9 @@ import { checkModelHealth, predictFishQuality } from "../lib/model.js";
 
 const router = Router();
 
-// ─────────────────────────────────────────────────────────────
 // POST /api/upload/predict
 // Prediksi ikan dari gambar yang sudah tersimpan di DB
-// Flow: Update batch 'processing' → batch_id → fishes (pending) → download images → prediksi → simpan hasil → Update batch akhir
-// ─────────────────────────────────────────────────────────────
+// Flow: Update batch 'processing' -> batch_id -> fishes (pending) -> download images -> prediksi -> simpan hasil -> Update batch akhir
 router.post("/predict", requireAuth, async (req, res) => {
   const { batch_id } = req.body;
   if (!batch_id) {
@@ -17,7 +15,6 @@ router.post("/predict", requireAuth, async (req, res) => {
   }
 
   try {
-    // 1. Awal proses → Set status batch menjadi 'processing'
     const { error: startBatchErr } = await supabase
       .from("batches")
       .update({
@@ -28,10 +25,8 @@ router.post("/predict", requireAuth, async (req, res) => {
 
     if (startBatchErr) throw startBatchErr;
 
-    // 2. Cek kesiapan model AI
     const modelReady = await checkModelHealth();
     if (!modelReady) {
-      // Jika model mati, kembalikan status batch ke failed/rejected sebelum response
       await supabase
         .from("batches")
         .update({ status: "failed", preprocessed_status: "rejected" })
@@ -42,7 +37,6 @@ router.post("/predict", requireAuth, async (req, res) => {
       });
     }
 
-    // 3. Ambil semua ikan pending di batch ini beserta image id-nya
     const { data: fishes, error: fishesErr } = await supabase
       .from("fishes")
       .select("id, fish_index, eye_image_id, gill_image_id")
@@ -51,7 +45,6 @@ router.post("/predict", requireAuth, async (req, res) => {
 
     if (fishesErr) throw fishesErr;
     if (!fishes || fishes.length === 0) {
-      // Jika tidak ada data ikan, kembalikan status batch ke failed/rejected
       await supabase
         .from("batches")
         .update({ status: "failed", preprocessed_status: "rejected" })
@@ -65,10 +58,8 @@ router.post("/predict", requireAuth, async (req, res) => {
     const results = [];
     const errors = [];
 
-    // 4. Proses setiap ikan secara berurutan
     for (const fish of fishes) {
       try {
-        // 5. Ambil storage_path dari tabel images
         const { data: images, error: imgErr } = await supabase
           .from("images")
           .select("id, storage_path, mime_type")
@@ -85,7 +76,6 @@ router.post("/predict", requireAuth, async (req, res) => {
           );
         }
 
-        // 6. Download gambar dari Supabase Storage
         const [eyeDownload, gillDownload] = await Promise.all([
           supabase.storage.from("images").download(eyeImg.storage_path),
           supabase.storage.from("images").download(gillImg.storage_path),
@@ -100,11 +90,9 @@ router.post("/predict", requireAuth, async (req, res) => {
             "Gagal download foto insang: " + gillDownload.error.message,
           );
 
-        // 7. Convert Blob ke Buffer
         const eyeBuffer = Buffer.from(await eyeDownload.data.arrayBuffer());
         const gillBuffer = Buffer.from(await gillDownload.data.arrayBuffer());
 
-        // 8. Kirim ke model AI
         const prediction = await predictFishQuality(
           eyeBuffer,
           eyeImg.mime_type,
@@ -112,7 +100,6 @@ router.post("/predict", requireAuth, async (req, res) => {
           gillImg.mime_type,
         );
 
-        // 9. Normalisasi confidence score ke 0-1
         const rawAvg =
           (prediction.mata.confidence + prediction.insang.confidence) / 2;
         const dbConfidenceAvg = rawAvg > 1 ? rawAvg / 100 : rawAvg;
@@ -125,7 +112,6 @@ router.post("/predict", requireAuth, async (req, res) => {
             ? prediction.insang.confidence / 100
             : prediction.insang.confidence;
 
-        // 10. Simpan hasil ke prediction_results
         const { error: predErr } = await supabase
           .from("prediction_results")
           .insert({
@@ -143,7 +129,6 @@ router.post("/predict", requireAuth, async (req, res) => {
 
         if (predErr) throw predErr;
 
-        // 11. Update status ikan jadi done
         const { error: updateErr } = await supabase
           .from("fishes")
           .update({ status: "done" })
@@ -160,7 +145,6 @@ router.post("/predict", requireAuth, async (req, res) => {
       } catch (fishErr) {
         console.error(`[predict] ikan #${fish.fish_index}:`, fishErr.message);
 
-        // Tandai ikan gagal
         await supabase
           .from("fishes")
           .update({ status: "failed" })

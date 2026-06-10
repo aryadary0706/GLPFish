@@ -34,6 +34,22 @@ function _ext(mimetype) {
   return map[mimetype] ?? ".jpg";
 }
 
+// Error handler khusus multer
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        error: `Ukuran file '${err.field}' terlalu besar. Maksimal 5MB.`,
+      });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  if (err.message?.includes("tidak didukung")) {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
+});
+
 // ─────────────────────────────────────────────────────────────
 // POST /api/upload/images
 // Upload foto mata + insang, simpan ke storage & DB tanpa prediksi
@@ -184,20 +200,6 @@ router.post(
   },
 );
 
-// Error handler khusus multer
-router.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(400).json({
-        error: `Ukuran file '${err.field}' terlalu besar. Maksimal 5MB.`,
-      });
-    }
-    return res.status(400).json({ error: err.message });
-  }
-  if (err.message?.includes("tidak didukung")) {
-    return res.status(400).json({ error: err.message });
-  }
-  next(err);
-});
+
 
 export default router;

@@ -10,9 +10,7 @@ const formatIndonesianDate = (dateString) => {
   return new Date(dateString).toLocaleDateString("id-ID", options);
 };
 
-// ==========================================
 // GET /api/batches/distribusi
-// ==========================================
 router.get("/distribusi", requireAuth, async (req, res) => {
   try {
     const { jenis, search } = req.query;

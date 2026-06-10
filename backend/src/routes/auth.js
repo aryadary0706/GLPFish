@@ -25,7 +25,6 @@ router.post('/register', async (req, res) => {
 
   const hashed = await bcrypt.hash(password, SALT_ROUNDS)
 
-  // Default saat ini: Staff
   const { data: user, error } = await supabase
     .from('users')
     .insert({ email, password: hashed, name, role })
@@ -55,7 +54,6 @@ router.post('/login', async (req, res) => {
     .eq('email', email)
     .maybeSingle()
 
-  // Gunakan pesan generik agar tidak bocor info akun
   if (error || !user)
     return res.status(401).json({ error: 'Email atau password salah' })
 
