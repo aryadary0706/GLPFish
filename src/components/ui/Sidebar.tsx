@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BarChart2, User, Camera, Images, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth'
-import logoGanusa from '../../assets/logo-ganusa.png';
+import logoGanusa from '../../assets/logo_ganusa.png';
+import { useRole } from '../../hooks/useRole';
 
 export type ActiveMenu = 'camera' | 'gallery' | 'stats' | 'settings' | 'admin';
 
@@ -13,6 +14,7 @@ interface SidebarProps {
 export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { isAdmin } = useRole();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -69,10 +71,10 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
 
       {/* Main navigation */}
       <nav className="flex flex-col gap-4 flex-1 w-full items-center">
-        {navBtn(activeMenu === 'camera',  () => navigate('/batches/B-2406-015/upload'), <Camera size={24} />,     'Upload')}
+        {navBtn(activeMenu === 'camera',  () => navigate('/batches/create'), <Camera size={24} />, 'Upload')}
         {navBtn(activeMenu === 'gallery', () => navigate('/batches/create'),            <Images size={24} />,     'Batch')}
         {navBtn(activeMenu === 'stats',   () => navigate('/statistic'),                 <BarChart2 size={24} />,  'Statistik')}
-        {navBtn(activeMenu === 'admin',   () => navigate('/admin'),                     <ShieldCheck size={24} />, 'Admin')}
+        {isAdmin && navBtn(activeMenu === 'admin',   () => navigate('/admin'),     <ShieldCheck size={24} />, 'Admin')}
       </nav>
 
       {/* Bottom: Settings + Profile */}

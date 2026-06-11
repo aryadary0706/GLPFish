@@ -10,7 +10,7 @@ const GRADE_CFG = {
 }
 
 function FishCard({ name, grade, confidence }) {
-  const cfg = GRADE_CFG[grade]
+  const cfg = GRADE_CFG[grade] || GRADE_CFG['C']
   return (
     <div className="bg-white rounded-xl p-4 flex flex-col min-h-[160px] shadow-lg border border-gray-100">
       <div className="flex justify-between items-start mb-auto">
@@ -37,13 +37,13 @@ function GradeStatCard({ grade, count, pct, total, berat }) {
       </div>
     )
   }
-  const cfg = GRADE_CFG[grade]
+  const cfg = GRADE_CFG[grade] || GRADE_CFG['C']
   return (
     <div className="relative bg-[#1e2330] rounded-2xl p-5 overflow-hidden flex-1 border border-white/5">
       <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full ${cfg.blob}`} />
       <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Grade {grade}</p>
-      <p className={`text-3xl font-bold ${cfg.numColor}`}>{count}</p>
-      <p className="text-sm text-gray-500 mt-1">{pct}% · {cfg.sub}</p>
+      <p className={`text-3xl font-bold ${cfg.numColor}`}>{count || 0}</p>
+      <p className="text-sm text-gray-500 mt-1">{pct || 0}% · {cfg.sub}</p>
     </div>
   )
 }
@@ -106,36 +106,38 @@ export default function HasilGradingPage() {
 
   if (!grading) return null
 
-  const pctA = Math.round((grading.gradeA / grading.totalIkan) * 100)
-  const pctB = Math.round((grading.gradeB / grading.totalIkan) * 100)
-  const pctC = Math.round((grading.gradeC / grading.totalIkan) * 100)
+  // Mencegah error pembagian dengan 0
+  const total = grading.totalIkan || 1
+  const pctA = Math.round(((grading.gradeA || 0) / total) * 100)
+  const pctB = Math.round(((grading.gradeB || 0) / total) * 100)
+  const pctC = Math.round(((grading.gradeC || 0) / total) * 100)
 
   return (
-    <div className="min-h-screen bg-white text-white flex flex-col">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
 
       {/* ── Header ── */}
       <div className="px-8 pt-8 pb-6">
         <div className="flex items-center text-sm text-gray-500 mb-3">
-          <button onClick={() => navigate('/batches/create')} className="hover:text-gray-300 transition-colors">Batches</button>
+          <button onClick={() => navigate('/batches/create')} className="hover:text-gray-800 transition-colors">Batches</button>
           <ChevronRight size={14} className="mx-1" />
-          <button onClick={() => navigate('/batches/create')} className="hover:text-gray-300 transition-colors">{batchId}</button>
+          <button onClick={() => navigate('/batches/create')} className="hover:text-gray-800 transition-colors">{batchId}</button>
           <ChevronRight size={14} className="mx-1" />
           <span className="text-gray-400">Hasil grading</span>
         </div>
 
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Hasil grading</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              {grading.totalIkan} ikan dianalisis · {grading.avgConfidence}% rata-rata konfidensi · {grading.duration} menit
+            <h1 className="text-2xl font-bold text-gray-900">Hasil grading</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {grading.totalIkan} ikan dianalisis · {grading.avgConfidence}% rata-rata konfidensi · {grading.duration || '00:00'} menit
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {actionMsg && (
-              <span className={`text-sm px-4 py-2 rounded-xl ${actionMsg.includes('berhasil') || actionMsg.includes('ditolak')
-                  ? 'bg-green-900/50 text-green-300'
-                  : 'bg-red-900/50 text-red-300'
+              <span className={`text-sm px-4 py-2 rounded-xl font-medium ${actionMsg.includes('berhasil') || actionMsg.includes('ditolak')
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-600'
                 }`}>
                 {actionMsg}
               </span>
@@ -143,7 +145,7 @@ export default function HasilGradingPage() {
             <button
               onClick={handleReject}
               disabled={actionLoading}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold border border-gray-600 text-black rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <X size={15} /> Tolak
             </button>
@@ -167,12 +169,16 @@ export default function HasilGradingPage() {
       </div>
 
       {/* ── Fish grid ── */}
-      <div className="flex-1 px-8 pb-8">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {grading.fish.map(f => (
-            <FishCard key={f.id} name={f.name} grade={f.grade} confidence={f.confidence} />
-          ))}
-        </div>
+      <div className="flex-1 px-8 pb-8 bg-gray-50 rounded-tl-3xl pt-8">
+        {grading.fish && grading.fish.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {grading.fish.map((f, idx) => (
+              <FishCard key={f.id || idx} name={f.name} grade={f.grade} confidence={f.confidence} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-400 mt-10">Belum ada ikan yang diproses di batch ini.</div>
+        )}
       </div>
     </div>
   )

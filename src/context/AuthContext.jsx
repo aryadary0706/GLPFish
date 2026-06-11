@@ -29,11 +29,28 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async ({ email, password }) => {
     try {
-      const { user, token } = await AuthService.login({ email, password })
-      console.log('token:', token)
-      console.log('user:', user)
+      // 1. Tangkap seluruh balasannya dulu (jangan langsung dibongkar)
+      const response = await AuthService.login({ email, password })
+      console.log('[HASIL ASLI DARI BACKEND]:', response)
+
+      // 2. Antisipasi apakah datanya dibungkus dalam 'response.data' (khas Axios)
+      const payload = response.data ? response.data : response;
+
+      // 3. Ambil token dan user dari payload
+      // (Antisipasi juga kalau backend-mu menamakan tokennya 'accessToken')
+      const token = payload.token || payload.accessToken;
+      const userData = payload.user || payload;
+
+      if (!token) {
+        console.error("Gawat, token benar-benar tidak dikirim oleh backend!");
+        return { success: false, message: 'Format respons backend tidak sesuai' };
+      }
+
+      console.log('Token berhasil ditangkap:', token)
+      
+      // 4. Simpan dan update state
       localStorage.setItem('token', token)
-      setUser(user)
+      setUser(userData)
       return { success: true }
     } catch (err) {
       return { success: false, message: err.response?.data?.error ?? 'Login gagal' }
