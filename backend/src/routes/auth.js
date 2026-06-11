@@ -1,77 +1,14 @@
-import { Router } from 'express'
-import { supabase } from '../lib/supabase.js'
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
+import { Router } from "express";
+import {
+    register,
+    login,
+    logout
+} from "../controller/AuthController.js";
 
-const router = Router()
-const SALT_ROUNDS = 12
-const TOKEN_TTL   = '3d'
+const router = Router();
 
+router.post("/register", register);
+router.post("/login", login);
+router.post("/logout", logout);
 
-// REGISTER
-router.post('/register', async (req, res) => {
-  let { email, password, name, role } = req.body
-  if (!email || !password || !name )
-    return res.status(400).json({ success: false, message: 'Semua field wajib diisi' })
-  role = role || 'staff'
-
-  const { data: existing } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (existing) return res.status(409).json({ error: 'Email sudah terdaftar' })
-
-  const hashed = await bcrypt.hash(password, SALT_ROUNDS)
-
-  const { data: user, error } = await supabase
-    .from('users')
-    .insert({ email, password: hashed, name, role })
-    .select('id, email, name, role, created_at')
-    .single()
-
-  if (error) return res.status(500).json({ error: error.message })
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: TOKEN_TTL }
-  )
-
-  res.status(201).json({ user, token })
-})
-
-//login
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body
-  if (!email || !password)
-    return res.status(400).json({ error: 'Email dan password wajib diisi' })
-
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('id, email, name, password, role, created_at')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (error || !user)
-    return res.status(401).json({ error: 'Email atau password salah' })
-
-  const valid = await bcrypt.compare(password, user.password)
-  if (!valid) return res.status(401).json({ error: 'Email atau password salah' })
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: TOKEN_TTL }
-  )
-
-  const { password: _, ...safeUser } = user
-  res.json({ user: safeUser, token })
-})
-
-router.post('/logout', (req, res) => {
-  res.json({ message: 'Logout berhasil' })
-})
-
-export default router
+export default router;

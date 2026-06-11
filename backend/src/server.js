@@ -6,14 +6,9 @@ import dotenv from 'dotenv'
 import rateLimit from 'express-rate-limit'
 import authRoutes       from './routes/auth.js'
 import userRoutes       from './routes/user.js'
-import uploadRoutes     from './routes/upload.js'
-import predictRoutes    from './routes/predict.js'
-import inspectionRoutes from './routes/inspections.js'
 import adminRoutes from './routes/admin.js'
-import batchesRoutes     from './routes/batch.js'
-import batchStatusRoutes from './routes/batchStatus.js'
-import summaryRoutes     from './routes/summary.js'
-import batchResultRoutes from './routes/batchResult.js'
+import batchesRoutes from './routes/batches.js'
+import inspectionRoutes from './routes/Inspection.js'
 
 dotenv.config({ path: '.env.local' })
 
@@ -36,15 +31,12 @@ app.use(cors({
 
 app.use(express.json())
 
-app.use('/api/auth',        authRoutes)
-app.use('/api/users',       userRoutes)
-app.use('/api/upload',      uploadRoutes)
-app.use('/api/upload',      predictRoutes)
-app.use('/api/admin', adminRoutes)
-app.use('/api/batches', summaryRoutes)
-app.use('/api/batches', batchStatusRoutes)
-app.use('/api/batches', batchResultRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
+app.use('/api/upload', inspectionRoutes)
+app.use('/api/inspections', inspectionRoutes)
 app.use('/api/batches', batchesRoutes)
+app.use('/api/admin', adminRoutes)
 
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
