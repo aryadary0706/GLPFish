@@ -2,40 +2,22 @@ import { useState, useCallback } from 'react'
 import api from '@/lib/api'
 
 // ═══════════════════════════════════════════════════════════════
-// KONTRAK API — backend hanya perlu mengimplementasi endpoint ini
+// KONTRAK API
 // ═══════════════════════════════════════════════════════════════
-//
 // GET  /api/batches/:batchId/hasil
-//   Response: {
-//     grading: {
-//       batchId:        string,
-//       jenis:          string,
-//       totalIkan:      number,
-//       avgConfidence:  number,          // rata-rata confidence 0-100
-//       duration:       string,          // "MM:SS"
-//       gradeA:         number,
-//       gradeB:         number,
-//       gradeC:         number,
-//       totalBerat:     number,          // kg
-//       fish: [{
-//         id:           number,
-//         name:         string,          // "fish #1"
-//         grade:        "A" | "B" | "C",
-//         confidence:   number,          // 0-100
-//         imageUrl?:    string           // opsional, untuk preview foto
-//       }]
-//     }
-//   }
-//
 // PATCH /api/batches/:batchId/status
-//   Body:     { status: "saved" | "rejected" }
-//   Response: { success: true, message: string }
-//
+// GET  /api/batches/:batchId/fishes  <-- Endpoint Baru
 // ═══════════════════════════════════════════════════════════════
+
 export function useHasilGrading() {
+  // State untuk data Grading
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const [grading, setGrading] = useState(null)
+  const [error, setError] = useState(null)
+
+  // State khusus untuk data Ikan (Fishes)
+  const [fishes, setFishes] = useState([])
+  const [loadingFishes, setLoadingFishes] = useState(false)
 
   // GET /api/batches/:batchId/hasil
   const fetchGrading = useCallback(async (batchId) => {
@@ -43,13 +25,40 @@ export function useHasilGrading() {
     setError(null)
     try {
       const { data } = await api.get(`/batches/${batchId}/hasil`)
-      // Mengambil objek grading dari respons API
-      setGrading(data.grading || data) 
+      setGrading(data.grading || data)
     } catch (err) {
-      console.error("Fetch Grading Error:", err)
-      setError(err.response?.data?.message || err.response?.data?.error || 'Gagal memuat hasil grading')
+      // ── PENANGANAN ERROR 404 (BATCH BARU / BELUM ADA HASIL) ──
+      if (err.response && err.response.status === 404) {
+        console.warn(`Hasil grading untuk batch ${batchId} belum ada. Menggunakan nilai default 0.`);
+        setGrading({
+          totalIkan: 0,
+          avgConfidence: 0,
+          duration: "00:00",
+          gradeA: 0,
+          gradeB: 0,
+          gradeC: 0,
+          totalBerat: 0
+        });
+      } else {
+        console.error("Fetch Grading Error:", err)
+        setError(err.response?.data?.message || err.response?.data?.error || 'Gagal memuat hasil grading')
+      }
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  // GET /api/batches/:batchId/fishes
+  const fetchFishes = useCallback(async (batchId) => {
+    setLoadingFishes(true)
+    try {
+      const { data } = await api.get(`/batches/${batchId}/fishes`)
+      setFishes(data.fishes || [])
+    } catch (err) {
+      console.error("Fetch Fishes Error:", err)
+      setError(err.response?.data?.message || err.response?.data?.error || 'Gagal memuat foto ikan')
+    } finally {
+      setLoadingFishes(false)
     }
   }, [])
 
@@ -71,5 +80,16 @@ export function useHasilGrading() {
     }
   }, [])
 
-  return { fetchGrading, saveGrading, rejectGrading, grading, loading, error }
+  // Pastikan untuk meng-export fungsi dan state baru
+  return {
+    fetchGrading,
+    saveGrading,
+    rejectGrading,
+    fetchFishes,     // <-- Baru
+    grading,
+    fishes,          // <-- Baru
+    loading,
+    loadingFishes,   // <-- Baru
+    error
+  }
 }

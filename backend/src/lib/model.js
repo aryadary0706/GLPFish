@@ -2,7 +2,8 @@
 import FormData from 'form-data'
 import fetch from 'node-fetch'
 
-const MODEL_URL = process.env.FISH_MODEL_API_URL
+// const MODEL_URL = process.env.FISH_MODEL_API_URL
+const MODEL_URL = 'https://aryarasyad-fish-quality-classification.hf.space';
 
 /**
  * Cek apakah FastAPI model server hidup dan model sudah di-load

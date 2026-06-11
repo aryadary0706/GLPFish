@@ -151,7 +151,7 @@ export const getBatchResult = async (batchId) => {
         let imageUrl = null;
         if (fish.images?.storage_path) {
           const { data: publicUrlData } = supabase.storage
-            .from("fish-images") 
+            .from("images") 
             .getPublicUrl(fish.images.storage_path);
           imageUrl = publicUrlData?.publicUrl || null;
         }
@@ -326,7 +326,7 @@ export const getFishesByBatch = async (batchId) => {
     let eyeImageUrl = null;
     if (fish.eye_image?.storage_path) {
       const { data: urlData } = supabase.storage
-        .from("fish-images")
+        .from("images")
         .getPublicUrl(fish.eye_image.storage_path);
       eyeImageUrl = urlData?.publicUrl || null;
     }
@@ -334,7 +334,7 @@ export const getFishesByBatch = async (batchId) => {
     let gillImageUrl = null;
     if (fish.gill_image?.storage_path) {
       const { data: urlData } = supabase.storage
-        .from("fish-images")
+        .from("images")
         .getPublicUrl(fish.gill_image.storage_path);
       gillImageUrl = urlData?.publicUrl || null;
     }
