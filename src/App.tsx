@@ -1,25 +1,26 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 // Layouts
-import AuthLayout from './components/layout/AuthLayout'
-import ProtectedRoute from './components/ui/ProtectedRoute'
-import DashboardLayout from './pages/DashboardLayout'
+import AuthLayout from './components/layout/AuthLayout';
+import ProtectedRoute from './components/ui/ProtectedRoute';
+import DashboardLayout from './pages/DashboardLayout';
 
 // Pages
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import StatisticPage from './pages/StatisticPage'
-import NotFoundPage from './pages/NotFoundPage'
-import SettingsPage from './pages/SettingsPage'
-import HasilGradingPage from './pages/HasilGradingPage'
-import AdminPage from './pages/AdminPage'
-import AdminUsersPage from './pages/AdminUsersPage'
-import AdminUserDetailPage from './pages/AdminUserDetailPage'
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import StatisticPage from './pages/StatisticPage';
+import NotFoundPage from './pages/NotFoundPage';
+import SettingsPage from './pages/SettingsPage';
+import HasilGradingPage from './pages/HasilGradingPage';
+import AdminPage from './pages/AdminPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminUserDetailPage from './pages/AdminUserDetailPage';
 
-// Import Halaman Baru (Sesuaikan path-nya jika berbeda)
-import { CreateBatchPage } from './pages/CreateBatchPage'
-import { UploadPhotoPage } from './pages/UploadPhotoPage'
+// Import Halaman Baru
+import { CreateBatchPage } from './pages/CreateBatchPage';
+import { UploadPhotoPage } from './pages/UploadPhotoPage';
+
+import { useBatches } from './hooks/useBatches';
 
 export default function App() {
   return (
@@ -31,7 +32,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 
-        {/* ── Main App Layout (MENGGUNAKAN DASHBOARD LAYOUT & SIDEBAR BARU) ── */}
+        {/* ── Main App Layout ── */}
         <Route path="/" element={
           <ProtectedRoute>
             <DashboardLayout />
@@ -40,17 +41,16 @@ export default function App() {
           {/* Default redirect: saat user mengakses '/', langsung lempar ke /batches/create */}
           <Route index element={<Navigate to="/batches/create" replace />} />
           
-          {/* RUTE PENANGKAP: Jika ada sistem lama yang mengarah ke '/dashboard', 
-              langsung dialihkan ke halaman create batch */}
+          {/* RUTE PENANGKAP: Jika ada sistem lama yang mengarah ke '/dashboard' */}
           <Route path="dashboard" element={<Navigate to="/batches/create" replace />} />
           
           {/* Rute Baru: Create Batch */}
           <Route path="batches/create" element={<CreateBatchWrapper />} />
           
-          {/* Rute Baru: Upload Photo */}
+          {/* Rute Baru: Upload Photo (Dinamis menggunakan :batchId) */}
           <Route path="batches/:batchId/upload" element={<UploadWrapper />} />
 
-          {/* Hasil Grading: muncul saat batch completed diklik */}
+          {/* Hasil Grading */}
           <Route path="batches/:batchId/hasil" element={<HasilGradingPage />} />
 
           {/* Statistic / Distribusi */}
@@ -73,7 +73,7 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AuthProvider>
-  )
+  );
 }
 
 // ── WRAPPERS UNTUK MENYAMBUNGKAN NAVIGASI ──
@@ -81,13 +81,18 @@ function CreateBatchWrapper() {
   const navigate = useNavigate();
   return (
     <CreateBatchPage 
-      onNavigateToUpload={() => navigate('/batches/B-2406-015/upload')} 
+      // ✅ Menangkap ID dari API dan mengarahkannya ke URL yang benar
+      onNavigateToUpload={(data) => navigate(`/batches/${data.batchId}/upload`)} 
     />
   );
 }
 
 function UploadWrapper() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Tangkap data form dari halaman Create Batch
+  const batchData = location.state?.batchData;
+
   return (
     <UploadPhotoPage 
       onBack={() => navigate('/batches/create')} 

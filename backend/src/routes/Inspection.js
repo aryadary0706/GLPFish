@@ -1,13 +1,13 @@
 import { Router } from "express";
+import multer from "multer";
+
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
-import * as inspectionController from "../controller/InspectionController.js";
 import { uploadImages } from "../controller/ImageController.js";
 import { getInspectionDetails, getInspections, predictBatch } from "../controller/InspectionController.js";
-import multer from "multer";
 
 const router = Router();
 
-// Filter file image yang diupload
+// 1. Filter file image yang diupload (Dari kode temanmu)
 const fileFilter = (req, file, cb) => {
   const allowed = ["image/jpeg", "image/png", "image/webp"];
   if (allowed.includes(file.mimetype)) {
@@ -17,31 +17,38 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Helper untuk upload file (5MB)
+// 2. Setup Multer: Gunakan Memory Storage dengan limit 10MB
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter,
 });
 
-router.use(requireAuth);
+// Middleware penangkap file
+const uploadMiddleware = upload.fields([
+  { name: 'eye', maxCount: 1 },
+  { name: 'gill', maxCount: 1 }
+]);
 
-router.post(
-  "/",
-  upload.fields([
-    { name: "eye", maxCount: 1 },
-    { name: "gill", maxCount: 1 },
-  ]),
-  uploadImages
-);
-router.post("/predict", predictBatch);
-router.get("/", requireAdmin, getInspections);
-router.get("/:id", requireAdmin, getInspectionDetails);
+// ==========================================
+// 3. RUTE-RUTE API
+// ==========================================
 
+// Rute upload gambar kita (WAJIB '/images' agar sesuai dengan Frontend)
+router.post("/images", requireAuth, uploadMiddleware, uploadImages);
+
+// Rute fitur lain
+router.post("/predict", requireAuth, predictBatch);
+router.get("/", requireAuth, requireAdmin, getInspections);
+router.get("/:id", requireAuth, requireAdmin, getInspectionDetails);
+
+// ==========================================
+// 4. ERROR HANDLER KHUSUS MULTER
+// ==========================================
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(400).json({ error: `Ukuran file '${err.field}' terlalu besar. Maksimal 5MB.` });
+      return res.status(400).json({ error: `Ukuran file '${err.field}' terlalu besar. Maksimal 10MB.` });
     }
     return res.status(400).json({ error: err.message });
   }
@@ -51,4 +58,5 @@ router.use((err, req, res, next) => {
   return res.status(500).json({ error: err.message });
 });
 
+// BACA INI: Baris ini WAJIB ada agar server tidak crash!
 export default router;
