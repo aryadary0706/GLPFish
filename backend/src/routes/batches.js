@@ -12,5 +12,6 @@ router.get("/", batchController.getBatches);
 router.get("/distribusi", batchController.getBatchDistributionHandler);
 router.get("/:batchId/hasil", batchController.getBatchResultHandler);
 router.patch("/:batchId/status", batchController.updateBatchStatusHandler);
+router.get("/:batchId/fishes", batchController.getFishesByBatchHandler);
 
 export default router;

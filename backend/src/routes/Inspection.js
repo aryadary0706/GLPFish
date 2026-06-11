@@ -7,7 +7,6 @@ import { getInspectionDetails, getInspections, predictBatch } from "../controlle
 
 const router = Router();
 
-// 1. Filter file image yang diupload (Dari kode temanmu)
 const fileFilter = (req, file, cb) => {
   const allowed = ["image/jpeg", "image/png", "image/webp"];
   if (allowed.includes(file.mimetype)) {
@@ -17,14 +16,12 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// 2. Setup Multer: Gunakan Memory Storage dengan limit 10MB
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter,
 });
 
-// Middleware penangkap file
 const uploadMiddleware = upload.fields([
   { name: 'eye', maxCount: 1 },
   { name: 'gill', maxCount: 1 }
@@ -58,5 +55,4 @@ router.use((err, req, res, next) => {
   return res.status(500).json({ error: err.message });
 });
 
-// BACA INI: Baris ini WAJIB ada agar server tidak crash!
 export default router;

@@ -17,6 +17,7 @@ export const uploadFishImages = async (userId, batchId, files) => {
   const eyePath = `${userId}/${batchId}/${timestamp}_eye${_ext(eyeFile.mimetype)}`;
   const gillPath = `${userId}/${batchId}/${timestamp}_gill${_ext(gillFile.mimetype)}`;
 
+  // 1. Upload ke Storage tetap pakai path yang unik
   const [eyeUpload, gillUpload] = await Promise.all([
     supabase.storage.from("images").upload(eyePath, eyeFile.buffer, {
       contentType: eyeFile.mimetype,
@@ -33,12 +34,23 @@ export const uploadFishImages = async (userId, batchId, files) => {
   if (gillUpload.error)
     throw new Error("Gagal upload foto insang: " + gillUpload.error.message);
 
+  const { count, error: countErr } = await supabase
+    .from("fishes")
+    .select("*", { count: "exact", head: true })
+    .eq("batch_id", batchId);
+
+  if (countErr) throw countErr;
+  const fishIndex = (count || 0) + 1;
+
+  const newEyesName = `Eyes_Batch-${batchId}_Fish-${fishIndex}_${eyeFile.originalname}`;
+  const newGillName = `Gill_Batch-${batchId}_Fish-${fishIndex}_${gillFile.originalname}`;
+
   const [eyeImgResult, gillImgResult] = await Promise.all([
     supabase
       .from("images")
       .insert({
         user_id: userId,
-        file_name: eyeFile.originalname,
+        file_name: newEyesName,
         storage_path: eyeUpload.data.path,
         mime_type: eyeFile.mimetype,
         file_size: eyeFile.size,
@@ -49,7 +61,7 @@ export const uploadFishImages = async (userId, batchId, files) => {
       .from("images")
       .insert({
         user_id: userId,
-        file_name: gillFile.originalname,
+        file_name: newGillName,
         storage_path: gillUpload.data.path,
         mime_type: gillFile.mimetype,
         file_size: gillFile.size,
@@ -61,14 +73,7 @@ export const uploadFishImages = async (userId, batchId, files) => {
   if (eyeImgResult.error) throw eyeImgResult.error;
   if (gillImgResult.error) throw gillImgResult.error;
 
-  const { count, error: countErr } = await supabase
-    .from("fishes")
-    .select("*", { count: "exact", head: true })
-    .eq("batch_id", batchId);
-
-  if (countErr) throw countErr;
-  const fishIndex = (count || 0) + 1;
-
+  // 5. Insert ke tabel fishes
   const { data: fishRow, error: fishErr } = await supabase
     .from("fishes")
     .insert({
@@ -84,26 +89,19 @@ export const uploadFishImages = async (userId, batchId, files) => {
   if (fishErr) throw fishErr;
 
   let preprocessedStatus = "incomplete";
-  const { count: fishCount, error: countCheckErr } = await supabase
-    .from("fishes")
-    .select("*", { count: "exact", head: true })
-    .eq("batch_id", batchId);
+  const { data: batch } = await supabase
+    .from("batches")
+    .select("fish_count")
+    .eq("id", batchId)
+    .single();
 
-  if (!countCheckErr) {
-    const { data: batch } = await supabase
+  if (batch && fishIndex >= batch.fish_count) {
+    await supabase
       .from("batches")
-      .select("fish_count")
-      .eq("id", batchId)
-      .single();
+      .update({ preprocessed_status: "completed" })
+      .eq("id", batchId);
 
-    if (batch && fishCount >= batch.fish_count) {
-      await supabase
-        .from("batches")
-        .update({ preprocessed_status: "completed" })
-        .eq("id", batchId);
-
-      preprocessedStatus = "completed";
-    }
+    preprocessedStatus = "completed";
   }
 
   return {

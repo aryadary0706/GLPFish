@@ -290,3 +290,82 @@ export const getBatchDistribution = async (jenis, search) => {
     batches: formattedBatches,
   };
 };
+
+export const getFishesByBatch = async (batchId) => {
+  const { data, error } = await supabase
+    .from("fishes")
+    .select(`
+      id,
+      fish_index,
+      status,
+      eye_image:images!fishes_eye_image_fk ( storage_path ),
+      gill_image:images!fishes_gill_image_fk ( storage_path ),
+      prediction_results (
+        grade,
+        label_text,
+        exportable,
+        confidence_score,
+        eyes_status,
+        eyes_confidence_score,
+        gill_status,
+        gill_confidence_score,
+        predicted_at
+      )
+    `)
+    .eq("batch_id", batchId)
+    .order("fish_index", { ascending: true });
+
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw { status: 404, message: "Tidak ada ikan di batch ini." };
+  }
+
+  const fishes = data.map((fish) => {
+    const pred = fish.prediction_results?.[0] || null;
+
+    let eyeImageUrl = null;
+    if (fish.eye_image?.storage_path) {
+      const { data: urlData } = supabase.storage
+        .from("fish-images")
+        .getPublicUrl(fish.eye_image.storage_path);
+      eyeImageUrl = urlData?.publicUrl || null;
+    }
+
+    let gillImageUrl = null;
+    if (fish.gill_image?.storage_path) {
+      const { data: urlData } = supabase.storage
+        .from("fish-images")
+        .getPublicUrl(fish.gill_image.storage_path);
+      gillImageUrl = urlData?.publicUrl || null;
+    }
+
+    return {
+      id: fish.id,
+      fish_index: fish.fish_index,
+      status: fish.status,
+      eye_image_url: eyeImageUrl,
+      gill_image_url: gillImageUrl,
+      prediction_results: pred
+        ? {
+            grade: pred.grade,
+            label_text: pred.label_text,
+            exportable: pred.exportable,
+            confidence_score: pred.confidence_score
+              ? Math.round(pred.confidence_score * 100)
+              : 0,
+            eyes_status: pred.eyes_status,
+            eyes_confidence_score: pred.eyes_confidence_score
+              ? Math.round(pred.eyes_confidence_score * 100)
+              : 0,
+            gill_status: pred.gill_status,
+            gill_confidence_score: pred.gill_confidence_score
+              ? Math.round(pred.gill_confidence_score * 100)
+              : 0,
+            predicted_at: pred.predicted_at,
+          }
+        : null,
+    };
+  });
+
+  return { fishes };
+};

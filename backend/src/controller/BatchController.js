@@ -3,7 +3,8 @@ import {
   getAllBatches,
   getBatchResult,
   updateBatchStatus,
-  getBatchDistribution
+  getBatchDistribution,
+  getFishesByBatch
 }from "../services/batchService.js";
 
 
@@ -61,5 +62,16 @@ export const getBatchDistributionHandler = async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message });
+  }
+};
+
+export const getFishesByBatchHandler = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const result = await getFishesByBatch(batchId);
+    return res.status(200).json(result);
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
   }
 };
