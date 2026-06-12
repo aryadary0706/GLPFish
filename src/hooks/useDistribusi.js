@@ -35,6 +35,7 @@ import api from '@/lib/api'
 
 const MOCK_STATS = {
   totalBatch: 24, totalIkan: 2148, gradeAPercent: 62, rejectPercent: 11,
+  rejectedBatchCount: 0,
 }
 
 const MOCK_BATCHES = [

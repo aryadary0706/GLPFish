@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth'
 import logoGanusa from '../../assets/logo_ganusa.png';
 import { useRole } from '../../hooks/useRole';
+import { useBatches } from '../../hooks/useBatches';
 
 export type ActiveMenu = 'camera' | 'gallery' | 'stats' | 'settings' | 'admin';
 
@@ -15,6 +16,7 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isAdmin } = useRole();
+  const { batches, fetchBatches } = useBatches();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +29,22 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const userId = user?.id || user?.user?.id;
+  useEffect(() => {
+    if (userId) fetchBatches(userId);
+  }, [userId, fetchBatches]);
+
+  const handleCameraClick = () => {
+    const inProgress = batches.find(
+      (b: any) => b.status !== 'saved' && b.status !== 'rejected'
+    );
+    if (inProgress) {
+      navigate(`/batches/${inProgress.id}/upload`);
+    } else {
+      navigate('/batches/create');
+    }
+  };
 
   async function handleLogout() {
     setProfileOpen(false);
@@ -71,7 +89,7 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
 
       {/* Main navigation */}
       <nav className="flex flex-col gap-4 flex-1 w-full items-center">
-        {navBtn(activeMenu === 'camera',  () => navigate('/batches/create'), <Camera size={24} />, 'Upload')}
+        {navBtn(activeMenu === 'camera',  handleCameraClick, <Camera size={24} />, 'Upload')}
         {navBtn(activeMenu === 'gallery', () => navigate('/batches/create'),            <Images size={24} />,     'Batch')}
         {navBtn(activeMenu === 'stats',   () => navigate('/statistic'),                 <BarChart2 size={24} />,  'Statistik')}
         {isAdmin && navBtn(activeMenu === 'admin',   () => navigate('/admin'),     <ShieldCheck size={24} />, 'Admin')}

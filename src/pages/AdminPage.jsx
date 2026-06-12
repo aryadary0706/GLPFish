@@ -6,9 +6,10 @@ import {
 import {
   Users, BarChart2, Fish, TrendingUp, Download, ChevronRight,
   Filter, CheckCircle, AlertCircle, X, SlidersHorizontal,
-  ArrowUpRight, Activity, ShieldCheck,
+  ArrowUpRight, Activity, ShieldCheck, Ban,
 } from 'lucide-react'
 import { AdminService } from '../services/AdminServices'
+import RejectBatchModal from '../components/ui/RejectBatchModal'
 
 const JENIS_OPTS  = ['Semua', 'Kakap merah', 'Tuna sirip kuning', 'Kerapu', 'Bandeng']
 const STATUS_OPTS = ['Semua', 'Selesai', 'Proses', 'Gagal']
@@ -137,6 +138,14 @@ export default function AdminPage() {
   const [loading,   setLoading]   = useState(true)
   const [exportLoading, setExportLoading] = useState(false)
   const [error,     setError]     = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
+
+  async function handleConfirmReject(batch) {
+    await AdminService.rejectBatch(batch.id)
+    setBatches(prev => prev.map(b =>
+      b.id === batch.id ? { ...b, preprocessedStatus: 'rejected' } : b
+    ))
+  }
 
   useEffect(() => {
     const params = { dari: applied.dari, sampai: applied.sampai }
@@ -357,26 +366,49 @@ export default function AdminPage() {
                     <th className="px-3 py-3 text-left">Status</th>
                     <th className="px-3 py-3 text-right">Total</th>
                     <th className="px-3 py-3 text-left">Distribusi</th>
-                    <th className="px-5 py-3 text-left">Oleh</th>
+                    <th className="px-3 py-3 text-left">Oleh</th>
+                    <th className="px-5 py-3 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} className="text-center py-10 text-gray-300 text-xs">Memuat...</td></tr>
+                    <tr><td colSpan={7} className="text-center py-10 text-gray-300 text-xs">Memuat...</td></tr>
                   ) : filteredBatches.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-10 text-gray-400 text-xs">Tidak ada batch cocok filter.</td></tr>
+                    <tr><td colSpan={7} className="text-center py-10 text-gray-400 text-xs">Tidak ada batch cocok filter.</td></tr>
                   ) : filteredBatches.slice(0, 8).map(b => {
                     const gradeB = Math.max(0, (b.totalInspeksi || 0) - (b.gradeA || 0) - (b.reject || 0))
+                    const isRejected = b.preprocessedStatus === 'rejected'
                     return (
                       <tr key={b.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3 font-semibold text-orange-600 text-xs">{b.id}</td>
                         <td className="px-3 py-3 text-gray-700 text-xs">{b.fishCategory || '-'}</td>
-                        <td className="px-3 py-3"><StatusBadge status={b.status} /></td>
+                        <td className="px-3 py-3">
+                          {isRejected ? (
+                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-md text-[10px] font-semibold inline-flex items-center gap-1">
+                              <Ban size={10} /> Ditolak
+                            </span>
+                          ) : (
+                            <StatusBadge status={b.status} />
+                          )}
+                        </td>
                         <td className="px-3 py-3 text-right text-xs font-bold text-gray-700">{b.totalInspeksi}</td>
                         <td className="px-3 py-3">
                           <GradeBar a={b.gradeA || 0} b={gradeB} c={b.reject || 0} total={b.totalInspeksi || 0} />
                         </td>
-                        <td className="px-5 py-3 text-gray-400 text-xs">{b.userName || '-'}</td>
+                        <td className="px-3 py-3 text-gray-400 text-xs">{b.userName || '-'}</td>
+                        <td className="px-5 py-3 text-right">
+                          {isRejected ? (
+                            <span className="text-[10px] font-semibold text-gray-300">—</span>
+                          ) : (
+                            <button
+                              onClick={() => setRejectTarget(b)}
+                              title="Tolak batch"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 hover:border-red-200 rounded-lg transition-colors"
+                            >
+                              <Ban size={12} /> Tolak
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     )
                   })}
@@ -481,6 +513,13 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      <RejectBatchModal
+        open={!!rejectTarget}
+        batch={rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        onConfirm={handleConfirmReject}
+      />
     </div>
   )
 }

@@ -249,7 +249,7 @@ export const getBatchDistribution = async (jenis, search, userId) => {
   let totalBatch = batches.length;
   let totalIkanGlobal = 0;
   let globalGradeA = 0;
-  let globalGradeC = 0;
+  let rejectedBatchCount = 0;
 
   const formattedBatches = batches.map((batch) => {
     let gradeA = 0, gradeB = 0, gradeC = 0;
@@ -274,7 +274,8 @@ export const getBatchDistribution = async (jenis, search, userId) => {
 
     totalIkanGlobal += totalIkanBatch;
     globalGradeA += gradeA;
-    globalGradeC += gradeC;
+
+    if (batch.preprocessed_status === "rejected") rejectedBatchCount++;
 
     return {
       id: batch.id,
@@ -285,12 +286,12 @@ export const getBatchDistribution = async (jenis, search, userId) => {
       gradeC,
       total: totalIkanBatch,
       berat: parseFloat(batch.berat_total || 0),
-      status: batch.status,
+      status: batch.preprocessed_status || batch.status,
     };
   });
 
   const gradeAPercent = totalIkanGlobal > 0 ? Math.round((globalGradeA / totalIkanGlobal) * 100) : 0;
-  const rejectPercent = totalIkanGlobal > 0 ? Math.round((globalGradeC / totalIkanGlobal) * 100) : 0;
+  const rejectPercent = totalBatch > 0 ? Math.round((rejectedBatchCount / totalBatch) * 100) : 0;
 
   return {
     stats: {
@@ -298,6 +299,7 @@ export const getBatchDistribution = async (jenis, search, userId) => {
       totalIkan: totalIkanGlobal,
       gradeAPercent,
       rejectPercent,
+      rejectedBatchCount,
     },
     batches: formattedBatches,
   };

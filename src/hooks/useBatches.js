@@ -68,7 +68,7 @@ export function useBatches() {
 
   const createBatch = useCallback(async (formData) => {
     const { data } = await api.post('/batches', formData)
-    return data.batch 
+    return data.batch
   }, [])
 
   return { fetchBatches, createBatch, batches, loading, error }

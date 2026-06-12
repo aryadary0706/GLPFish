@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Camera, ChevronRight, Check, X, Plus } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Camera, ChevronRight, Check, X, Plus, Ban } from 'lucide-react';
 import { FormField } from '../components/ui/FormField';
 import { useBatches } from '../hooks/useBatches';
 import { useNavigate } from 'react-router-dom';
@@ -166,10 +166,10 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
           </h3>
           <div className="flex flex-col gap-3">
             {batches.map((batch: any, idx: number) => {
-              // 1. Cek status asli dari database
-              const isCompleted = batch.status === 'saved' || batch.status === 'rejected';
-              
-              // 2. Format tanggal ISO jadi format lokal yang rapi (contoh: 12 Jun 2026)
+              const isRejected = batch.status === 'rejected';
+              const isSaved = batch.status === 'saved';
+              const isCompleted = isSaved || isRejected;
+
               const formattedDate = new Date(batch.tanggal).toLocaleDateString('id-ID', {
                 day: 'numeric',
                 month: 'short',
@@ -180,24 +180,28 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
                 <div
                   key={idx}
                   onClick={() => {
-                    // Arahkan berdasarkan status asli DB
                     if (!isCompleted) {
                       onNavigateToUpload({ batchId: batch.id });
                     } else {
-                      navigate(`/batches/${batch.id}/hasil`); 
+                      navigate(`/batches/${batch.id}/hasil`);
                     }
                   }}
-                  className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between transition-colors shadow-sm hover:border-orange-400 cursor-pointer"
+                  className={`bg-white border rounded-xl p-4 flex items-center justify-between transition-colors shadow-sm cursor-pointer ${
+                    isRejected ? 'border-red-200 opacity-75' : 'border-gray-200 hover:border-orange-400'
+                  }`}
                 >
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 mb-0.5">{batch.id}</h4>
-                    {/* Tampilkan progress upload vs estimasi */}
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-gray-900 mb-0.5 truncate">{batch.id}</h4>
                     <p className="text-[13px] text-gray-500">
                       {formattedDate} • {batch.total_uploaded}/{batch.estimasi_jumlah} ikan
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {isCompleted ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isRejected ? (
+                      <span className="flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-md text-[11px] font-semibold">
+                        <Ban size={12} /> Rejected
+                      </span>
+                    ) : isSaved ? (
                       <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-md text-[11px] font-semibold">
                         <Check size={12} /> Completed
                       </span>

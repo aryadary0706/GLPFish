@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, SlidersHorizontal, Upload, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, SlidersHorizontal, Upload, ChevronLeft, ChevronRight, Ban } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useDistribusi } from '@/hooks/useDistribusi'
 import { useAuth } from '@/hooks/useAuth'
@@ -170,7 +170,7 @@ export default function StatisticPage() {
         <StatCard label="Total Batch" value={stats.totalBatch} />
         <StatCard label="Total Ikan" value={stats.totalIkan.toLocaleString('id-ID')} />
         <StatCard label="Grade A" value={`${stats.gradeAPercent}%`} valueClass="text-green-600" />
-        <StatCard label="Reject (C)" value={`${stats.rejectPercent}%`} valueClass="text-red-500" />
+        <StatCard label="Reject" value={`${stats.rejectPercent}%`} valueClass="text-red-500" />
       </div>
 
       {/* ── Table ── */}
@@ -192,31 +192,47 @@ export default function StatisticPage() {
                   Tidak ada batch ditemukan
                 </td>
               </tr>
-            ) : paginated.map((batch, idx) => (
-              <tr
-                key={batch.id}
-                className={`border-b border-gray-100 hover:bg-orange-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
-              >
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleBatchClick(batch)}
-                    className="text-[#f58220] font-bold hover:underline"
-                  >
-                    {batch.id}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.date}</td>
-                <td className="px-4 py-3 text-gray-800">{batch.jenis}</td>
-                <td className="px-4 py-3 font-bold text-green-600">{batch.gradeA}</td>
-                <td className="px-4 py-3 font-bold text-orange-500">{batch.gradeB}</td>
-                <td className="px-4 py-3 font-bold text-red-500">{batch.gradeC}</td>
-                <td className="px-4 py-3 text-gray-600">{batch.total}</td>
-                <td className="px-4 py-3">
-                  <DistribusiBar gradeA={batch.gradeA} gradeB={batch.gradeB} gradeC={batch.gradeC} total={batch.total} />
-                </td>
-                <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.berat} kg</td>
-              </tr>
-            ))}
+            ) : paginated.map((batch, idx) => {
+              const isRejected = batch.status === 'rejected'
+              return (
+                <tr
+                  key={batch.id}
+                  className={`border-b border-gray-100 transition-colors ${
+                    isRejected
+                      ? 'bg-red-50/40 hover:bg-red-50/70'
+                      : `hover:bg-orange-50/40 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleBatchClick(batch)}
+                        className={`font-bold hover:underline ${
+                          isRejected ? 'text-red-600 line-through decoration-red-300' : 'text-[#f58220]'
+                        }`}
+                      >
+                        {batch.id}
+                      </button>
+                      {isRejected && (
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
+                          <Ban size={10} /> Ditolak
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.date}</td>
+                  <td className="px-4 py-3 text-gray-800">{batch.jenis}</td>
+                  <td className="px-4 py-3 font-bold text-green-600">{batch.gradeA}</td>
+                  <td className="px-4 py-3 font-bold text-orange-500">{batch.gradeB}</td>
+                  <td className="px-4 py-3 font-bold text-red-500">{batch.gradeC}</td>
+                  <td className="px-4 py-3 text-gray-600">{batch.total}</td>
+                  <td className="px-4 py-3">
+                    <DistribusiBar gradeA={batch.gradeA} gradeB={batch.gradeB} gradeC={batch.gradeC} total={batch.total} />
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.berat} kg</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

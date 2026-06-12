@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CNNLoadingOverlay from '../components/ui/CNNLoadingOverlay';
+import CameraCapture from '../components/ui/CameraCapture';
 import api from '../lib/api';
 
 interface UploadPageProps {
@@ -30,6 +31,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
   const [gillFile, setGillFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [cameraOpenFor, setCameraOpenFor] = useState<'eye' | 'gill' | null>(null);
 
   const isFull = uploadedCount >= targetCount && targetCount > 0;
   const isReadyToProcess = eyeImg !== null && gillImg !== null;
@@ -52,13 +54,27 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
     if (batchId) fetchBatchProgress();
   }, [batchId]);
 
-  // Refs untuk input file (Galeri) dan input kamera native
+  // Refs untuk input file (Galeri)
   const eyeInputRef = useRef<HTMLInputElement>(null);
-  const eyeCameraRef = useRef<HTMLInputElement>(null);
   const gillInputRef = useRef<HTMLInputElement>(null);
-  const gillCameraRef = useRef<HTMLInputElement>(null);
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+  const handleCameraCapture = (file: File, type: 'eye' | 'gill') => {
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError(`Gagal upload. Ukuran file kamera terlalu besar (Max 10 MB).`);
+      return;
+    }
+    setUploadError(null);
+    const previewUrl = URL.createObjectURL(file);
+    if (type === 'eye') {
+      setEyeImg(previewUrl);
+      setEyeFile(file);
+    } else {
+      setGillImg(previewUrl);
+      setGillFile(file);
+    }
+  };
 
   // HANDLE FILE (DARI GALERI ATAU KAMERA NATIVE)
 
@@ -168,19 +184,21 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
           ========================================== */}
 
-      {/* Input untuk Mata */}
-
+      {/* Input untuk Mata (galeri) */}
       <input type="file" accept="image/*" className="hidden" ref={eyeInputRef} onChange={(e) => handleFileUpload(e, 'eye')} />
 
-      <input type="file" accept="image/*" capture="environment" className="hidden" ref={eyeCameraRef} onChange={(e) => handleFileUpload(e, 'eye')} />
-
-
-
-      {/* Input untuk Insang */}
-
+      {/* Input untuk Insang (galeri) */}
       <input type="file" accept="image/*" className="hidden" ref={gillInputRef} onChange={(e) => handleFileUpload(e, 'gill')} />
 
-      <input type="file" accept="image/*" capture="environment" className="hidden" ref={gillCameraRef} onChange={(e) => handleFileUpload(e, 'gill')} />
+      {/* Modal kamera live */}
+      <CameraCapture
+        open={cameraOpenFor !== null}
+        title={cameraOpenFor === 'eye' ? 'Ambil foto mata ikan' : 'Ambil foto insang ikan'}
+        onClose={() => setCameraOpenFor(null)}
+        onCapture={(file) => {
+          if (cameraOpenFor) handleCameraCapture(file, cameraOpenFor);
+        }}
+      />
 
 
 
@@ -258,7 +276,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
                 <Upload size={16} /> Pilih file
               </button>
 
-              <button onClick={() => eyeCameraRef.current?.click()} className="bg-white text-orange-500 border border-orange-300 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors">
+              <button onClick={() => setCameraOpenFor('eye')} className="bg-white text-orange-500 border border-orange-300 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors">
                 <Camera size={16} /> Kamera
               </button>
 
@@ -286,7 +304,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
               </button>
 
-              <button onClick={() => eyeCameraRef.current?.click()} className="bg-white text-orange-500 border border-orange-300 px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-orange-50 transition-colors">
+              <button onClick={() => setCameraOpenFor('eye')} className="bg-white text-orange-500 border border-orange-300 px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-orange-50 transition-colors">
 
                 <Camera size={16} /> Kamera ulang
 
@@ -323,7 +341,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
                 <Upload size={16} /> Pilih file
               </button>
 
-              <button onClick={() => gillCameraRef.current?.click()} className="bg-white text-orange-500 border border-orange-300 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors">
+              <button onClick={() => setCameraOpenFor('gill')} className="bg-white text-orange-500 border border-orange-300 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors">
                 <Camera size={16} /> Kamera
               </button>
             </div>
@@ -341,7 +359,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
                 <Upload size={16} /> Ganti file
               </button>
 
-              <button onClick={() => gillCameraRef.current?.click()} className="bg-white text-orange-500 border border-orange-300 px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-orange-50 transition-colors">
+              <button onClick={() => setCameraOpenFor('gill')} className="bg-white text-orange-500 border border-orange-300 px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-orange-50 transition-colors">
                 <Camera size={16} /> Kamera ulang
               </button>
             </div>

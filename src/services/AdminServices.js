@@ -26,6 +26,11 @@ export const AdminService = {
     return data.activities
   },
 
+  async rejectBatch(batchId) {
+    const { data } = await api.patch(`/batches/${batchId}/status`, { status: 'rejected' })
+    return data
+  },
+
   async getUsers(params = {}) {
     const { data } = await api.get('/admin/users', { params })
     return data

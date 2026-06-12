@@ -47,6 +47,11 @@ export const updateBatchStatusHandler = async (req, res) => {
   try {
     const { batchId } = req.params;
     const { status } = req.body;
+
+    if (status === "rejected" && req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Hanya admin yang dapat menolak batch." });
+    }
+
     const result = await updateBatchStatus(batchId, status);
     return res.status(200).json(result);
   } catch (error) {
