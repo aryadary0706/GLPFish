@@ -40,37 +40,22 @@ import api from '@/lib/api'
 //   Response: { success: true, message: string }
 //
 // ═══════════════════════════════════════════════════════════════
-
-// ─── Mock recent batches (hapus saat backend siap) ────────────
-const MOCK_RECENT = [
-  { id: 'B-2406-015', date: '24 Mei', count: '120',    status: 'Completed' },
-  { id: 'B-2406-014', date: '23 Mei', count: '88/120', status: 'Incomplete' },
-  { id: 'B-2406-013', date: '22 Mei', count: '142',    status: 'Completed' },
-  { id: 'B-2406-012', date: '22 Mei', count: '64',     status: 'Completed' },
-  { id: 'B-2406-011', date: '21 Mei', count: '96',     status: 'Completed' },
-]
-
 export function useBatches() {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
-  const [batches, setBatches] = useState(MOCK_RECENT)
+  const [batches, setBatches] = useState([]) // 👈 Langsung mulai dengan array kosong, hapus MOCK_RECENT
 
   const fetchBatches = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      // ── Aktifkan saat backend siap: ──────────────────────────
       const { data } = await api.get('/batches')
-      // Map ke format yang sama dengan mock: { id, date, count, status }
-      setBatches(data.batches.map(b => ({
-        id:     b.id,
-        date:   new Date(b.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-        count:  b.status === 'incomplete'
-                  ? `${b.total}/${b.estimasi_jumlah}`
-                  : String(b.total),
-        status: b.status === 'completed' ? 'Completed' : 'Incomplete',
-      })))
-      // ─────────────────────────────────────────────────────────
+      
+      // 💥 PERUBAHAN UTAMA: 
+      // Langsung masukkan data mentah dari backend apa adanya!
+      // Jangan di-map atau diubah nama variabelnya.
+      setBatches(data.batches || data || [])
+
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal memuat daftar batch')
     } finally {
@@ -78,17 +63,13 @@ export function useBatches() {
     }
   }, [])
 
-  useEffect(() => { fetchBatches() }, [fetchBatches])
+  useEffect(() => { 
+    fetchBatches() 
+  }, [fetchBatches])
 
   const createBatch = useCallback(async (formData) => {
-    // ── Aktifkan saat backend siap: ──────────────────────────
     const { data } = await api.post('/batches', formData)
     return data.batch 
-    // ─────────────────────────────────────────────────────────
-
-    // // Mock: return fake batch ID
-    // console.warn('[useBatches] createBatch mock — backend belum siap')
-    // return { id: 'B-2406-016', status: 'incomplete' }
   }, [])
 
   return { fetchBatches, createBatch, batches, loading, error }

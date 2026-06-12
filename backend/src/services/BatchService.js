@@ -72,12 +72,18 @@ export const getAllBatches = async (statusFilter) => {
 
     if (batch.fishes) {
       batch.fishes.forEach(fish => {
-        if (fish.prediction_results && fish.prediction_results.length > 0) {
+        // 1. Akali datanya: kalau dia Array ambil index [0], kalau Object biarkan saja
+        const pred = Array.isArray(fish.prediction_results)
+          ? fish.prediction_results[0]
+          : fish.prediction_results;
+
+        // 2. Cek apakah variabel 'pred' benar-benar ada isinya
+        if (pred && pred.grade) {
           totalProses++;
-          const grade = fish.prediction_results[0].grade?.toUpperCase();
+          const grade = pred.grade.toUpperCase();
           if (grade === "A") gradeA++;
-          if (grade === "B") gradeB++;
-          if (grade === "C") gradeC++;
+          else if (grade === "B") gradeB++;
+          else if (grade === "C") gradeC++;
         }
       });
     }
@@ -90,7 +96,8 @@ export const getAllBatches = async (statusFilter) => {
       gradeA,
       gradeB,
       gradeC,
-      total: totalProses,
+      total: totalProses, // Ini tetap ikan yang sudah diprediksi
+      total_uploaded: batch.fishes ? batch.fishes.length : 0, // <--- BARIS BARU INI
       berat: batch.berat_total || 0,
       estimasi_jumlah: batch.estimasi_jumlah || batch.fish_count || 0
     };
@@ -136,11 +143,16 @@ export const getBatchResult = async (batchId) => {
     batch.fishes.sort((a, b) => (a.fish_index || 0) - (b.fish_index || 0));
 
     batch.fishes.forEach(fish => {
-      if (fish.prediction_results && fish.prediction_results.length > 0) {
-        const pred = fish.prediction_results[0];
-        totalIkanProses++;
+      // 1. Tangkap prediksinya, entah dia Array atau Object Tunggal
+      const pred = Array.isArray(fish.prediction_results)
+        ? fish.prediction_results[0]
+        : fish.prediction_results;
 
-        const grade = pred.grade?.toUpperCase() || "C";
+      // 2. Cek apakah prediksinya benar-benar ada
+      if (pred && pred.grade) {
+        totalIkanProses++;
+        
+        const grade = pred.grade.toUpperCase();
         if (grade === "A") gradeA++;
         else if (grade === "B") gradeB++;
         else gradeC++;
@@ -153,10 +165,10 @@ export const getBatchResult = async (batchId) => {
         }
 
         let imageUrl = null;
-        if (fish.images?.storage_path) {
+        if (fish.eye_image?.storage_path) { // <-- Pastikan pakai eye_image seperti perbaikan sebelumnya
           const { data: publicUrlData } = supabase.storage
-            .from("images")
-            .getPublicUrl(fish.images.storage_path);
+            .from("images") 
+            .getPublicUrl(fish.eye_image.storage_path);
           imageUrl = publicUrlData?.publicUrl || null;
         }
 
@@ -169,6 +181,7 @@ export const getBatchResult = async (batchId) => {
         });
       }
     });
+  
   }
 
   const avgConfidence = totalIkanProses > 0 ? Math.round(totalConfidence / totalIkanProses) : 0;
@@ -325,8 +338,9 @@ export const getFishesByBatch = async (batchId) => {
   }
 
   const fishes = data.map((fish) => {
-    const pred = fish.prediction_results?.[0] || null;
-
+    const pred = Array.isArray(fish.prediction_results)
+      ? fish.prediction_results[0]
+      : fish.prediction_results || null;
     let eyeImageUrl = null;
     if (fish.eye_image?.storage_path) {
       const { data: urlData } = supabase.storage
