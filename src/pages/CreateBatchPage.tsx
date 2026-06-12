@@ -150,32 +150,52 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
             Batch Terakhir
           </h3>
           <div className="flex flex-col gap-3">
-            {batches.map((batch: any, idx: number) => (
-              <div
-                key={idx}
-                onClick={() => {
-                  if (batch.status === 'Incomplete') {
-                    onNavigateToUpload({ batchId: batch.id });
-                  } else {
-                    navigate(`/batches/${batch.id}/hasil`); // Mengarahkan ke halaman hasil grading
-                  }
-                }}
-                className={`bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between transition-colors shadow-sm hover:border-orange-400 cursor-pointer'}`}
-              >
-                <div>
-                  <h4 className="text-sm font-bold text-gray-900 mb-0.5">{batch.id}</h4>
-                  <p className="text-[13px] text-gray-500">{batch.date} • {batch.count} ikan</p>
+            {batches.map((batch: any, idx: number) => {
+              // 1. Cek status asli dari database
+              const isCompleted = batch.status === 'saved' || batch.status === 'rejected';
+              
+              // 2. Format tanggal ISO jadi format lokal yang rapi (contoh: 12 Jun 2026)
+              const formattedDate = new Date(batch.tanggal).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              });
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    // Arahkan berdasarkan status asli DB
+                    if (!isCompleted) {
+                      onNavigateToUpload({ batchId: batch.id });
+                    } else {
+                      navigate(`/batches/${batch.id}/hasil`); 
+                    }
+                  }}
+                  className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between transition-colors shadow-sm hover:border-orange-400 cursor-pointer"
+                >
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 mb-0.5">{batch.id}</h4>
+                    {/* Tampilkan progress upload vs estimasi */}
+                    <p className="text-[13px] text-gray-500">
+                      {formattedDate} • {batch.total_uploaded}/{batch.estimasi_jumlah} ikan
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {isCompleted ? (
+                      <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-md text-[11px] font-semibold">
+                        <Check size={12} /> Completed
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded-md text-[11px] font-semibold">
+                        <X size={12} /> Incomplete
+                      </span>
+                    )}
+                    <ChevronRight size={16} className="text-gray-400" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {batch.status === 'Completed' ? (
-                    <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-md text-[11px] font-semibold"><Check size={12} /> Completed</span>
-                  ) : (
-                    <span className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded-md text-[11px] font-semibold"><X size={12} /> Incomplete</span>
-                  )}
-                  <ChevronRight size={16} className="text-gray-400" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

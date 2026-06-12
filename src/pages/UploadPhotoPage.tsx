@@ -44,7 +44,7 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
         const batchList = response.data?.batches || response.data || [];
         const currentBatch = batchList.find((b: any) => b.id === batchId);
         if (currentBatch) {
-          setUploadedCount(currentBatch.total || 0);
+          setUploadedCount(currentBatch.total_uploaded || 0); 
           setTargetCount(currentBatch.estimasi_jumlah || 0);
         }
       } catch (error) { console.error("Gagal ambil progres:", error); }

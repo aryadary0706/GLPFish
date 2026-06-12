@@ -43,13 +43,19 @@ const GRADE_CFG: Record<string, GradeConfig> = {
 
 // ── KOMPONEN KARTU IKAN ──
 function FishCard({ fish }: { fish: FishData }) {
-  // Cek apakah hasil prediksi sudah ada atau masih pending
-  const isPending = fish.status === 'pending' || !fish.prediction_results;
-  const grade = isPending ? 'PENDING' : (fish.prediction_results?.grade || 'C');
-  const confidence = isPending ? 0 : (fish.prediction_results?.confidence || 0);
+  const pred = Array.isArray(fish.prediction_results) 
+    ? fish.prediction_results[0] 
+    : fish.prediction_results || null;
+
+  // 💥 PERUBAHAN: Hapus `fish.status === 'pending'`. 
+  // Kita murni cuma ngecek apakah hasil AI (pred) sudah ada atau belum.
+  const isPending = !pred || !pred.grade;
+  
+  const grade = isPending ? 'PENDING' : (pred.grade || 'C').toUpperCase();
+  const confidence = isPending ? 0 : (pred.confidence ?? pred.confidence_score ?? 0);
   
   const cfg = GRADE_CFG[grade] || GRADE_CFG['C'];
-
+  
   return (
     <div className="bg-white rounded-xl p-4 flex flex-col shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
       <div className="flex justify-between items-start mb-4">
