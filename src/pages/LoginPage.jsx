@@ -57,8 +57,12 @@ export default function LoginPage() {
         {/* Branding */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
           <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#FB7D00] bg-[#FB7D00]/10 text-2xl font-bold text-[#FB7D00]">
-              ♞
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden">
+              <img
+                src="/src/assets/Logo_ganusa.png"
+                alt="Logo Ganusa"
+                className="h-full w-full object-contain"
+              />
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#FB7D00]">
@@ -148,15 +152,6 @@ export default function LoginPage() {
                 Register now
               </Link>
             </p>
-
-            {/* Admin Login Button */}
-            <button
-              type="button"
-              onClick={handleAdminLogin}
-              className="w-full border-2 border-[#FB7D00] text-[#FB7D00] font-semibold py-3 rounded-md hover:bg-[#FB7D00]/5 transition"
-            >
-              Login as Admin
-            </button>
           </form>
         </div>
       </div>
