@@ -70,12 +70,13 @@ export function useDistribusi() {
   const [stats,   setStats]   = useState(MOCK_STATS)
   const [batches, setBatches] = useState(MOCK_BATCHES)
 
-  const fetchDistribusi = useCallback(async () => {
+  const fetchDistribusi = useCallback(async (userId) => {
+    if (!userId) return;
     setLoading(true)
     setError(null)
     try {
       // ── Aktifkan saat backend siap: ──────────────────────────
-      const { data } = await api.get('/batches/distribusi')
+      const { data } = await api.get(`/batches/distribusi/user/${userId}`);
       setStats(data.stats)
       setBatches(data.batches)
       // ─────────────────────────────────────────────────────────

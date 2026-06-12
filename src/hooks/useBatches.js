@@ -45,24 +45,23 @@ export function useBatches() {
   const [error,   setError]   = useState(null)
   const [batches, setBatches] = useState([]) // 👈 Langsung mulai dengan array kosong, hapus MOCK_RECENT
 
-  const fetchBatches = useCallback(async () => {
+  const fetchBatches = useCallback(async (userId) => { 
+    if (!userId) return; // Mencegah error kalau user belum ter-load
+
     setLoading(true)
     setError(null)
     try {
-      const { data } = await api.get('/batches')
+      // Pastikan URL-nya menembak ke endpoint dinamis yang baru
+      const { data } = await api.get(`/batches/user/${userId}`)
       
-      // 💥 PERUBAHAN UTAMA: 
-      // Langsung masukkan data mentah dari backend apa adanya!
-      // Jangan di-map atau diubah nama variabelnya.
       setBatches(data.batches || data || [])
-
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal memuat daftar batch')
     } finally {
       setLoading(false)
     }
   }, [])
-
+  
   useEffect(() => { 
     fetchBatches() 
   }, [fetchBatches])

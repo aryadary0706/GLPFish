@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Camera, ChevronRight, Check, X, Plus } from 'lucide-react';
 import { FormField } from '../components/ui/FormField';
 import { useBatches } from '../hooks/useBatches';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 interface BatchItem {
   id: string;
@@ -16,8 +17,22 @@ interface CreateBatchPageProps {
 }
 
 export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) => {
-  const { createBatch, loading, batches } = useBatches();
+  const { user } = useAuth();
+  const { createBatch, fetchBatches, loading, batches } = useBatches();
   const navigate = useNavigate();
+  useEffect(() => {
+    console.log("1. Data User saat ini:", user); // CCTV 1: Lihat bentuk objek user
+
+    // Cari ID dengan aman (mengakali kalau posisinya ngumpet di user.user.id)
+    const currentUserId = user?.id || user?.user?.id; 
+
+    console.log("2. ID yang didapat:", currentUserId); // CCTV 2: Pastikan ID-nya dapet
+
+    if (currentUserId) {
+      console.log("3. Memanggil API fetchBatches..."); // CCTV 3: Pastikan fungsi dipanggil
+      fetchBatches(currentUserId);
+    }
+  }, [user, fetchBatches]);
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
