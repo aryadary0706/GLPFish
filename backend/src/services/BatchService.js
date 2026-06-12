@@ -72,12 +72,10 @@ export const getAllBatches = async (statusFilter) => {
 
     if (batch.fishes) {
       batch.fishes.forEach(fish => {
-        // 1. Akali datanya: kalau dia Array ambil index [0], kalau Object biarkan saja
         const pred = Array.isArray(fish.prediction_results)
           ? fish.prediction_results[0]
           : fish.prediction_results;
 
-        // 2. Cek apakah variabel 'pred' benar-benar ada isinya
         if (pred && pred.grade) {
           totalProses++;
           const grade = pred.grade.toUpperCase();
@@ -96,8 +94,8 @@ export const getAllBatches = async (statusFilter) => {
       gradeA,
       gradeB,
       gradeC,
-      total: totalProses, // Ini tetap ikan yang sudah diprediksi
-      total_uploaded: batch.fishes ? batch.fishes.length : 0, // <--- BARIS BARU INI
+      total: totalProses,
+      total_uploaded: batch.fishes ? batch.fishes.length : 0,
       berat: batch.berat_total || 0,
       estimasi_jumlah: batch.estimasi_jumlah || batch.fish_count || 0
     };
@@ -126,11 +124,10 @@ export const getBatchResult = async (batchId) => {
     .single();
 
   if (error) {
-    // Biar kelihatan di Postman kalau ada masalah relasi/tabel
     throw { status: 500, message: `Supabase Error: ${error.message} (${error.details})` };
   }
   if (!batch) {
-    throw { status: 404, message: "Batch memang beneran ga ada di DB" };
+    throw { status: 404, message: "Batch tidak ditemukan di DB" };
   }
 
   let gradeA = 0, gradeB = 0, gradeC = 0;
@@ -143,12 +140,10 @@ export const getBatchResult = async (batchId) => {
     batch.fishes.sort((a, b) => (a.fish_index || 0) - (b.fish_index || 0));
 
     batch.fishes.forEach(fish => {
-      // 1. Tangkap prediksinya, entah dia Array atau Object Tunggal
       const pred = Array.isArray(fish.prediction_results)
         ? fish.prediction_results[0]
         : fish.prediction_results;
 
-      // 2. Cek apakah prediksinya benar-benar ada
       if (pred && pred.grade) {
         totalIkanProses++;
         
@@ -165,7 +160,7 @@ export const getBatchResult = async (batchId) => {
         }
 
         let imageUrl = null;
-        if (fish.eye_image?.storage_path) { // <-- Pastikan pakai eye_image seperti perbaikan sebelumnya
+        if (fish.eye_image?.storage_path) { 
           const { data: publicUrlData } = supabase.storage
             .from("images") 
             .getPublicUrl(fish.eye_image.storage_path);
@@ -181,7 +176,6 @@ export const getBatchResult = async (batchId) => {
         });
       }
     });
-  
   }
 
   const avgConfidence = totalIkanProses > 0 ? Math.round(totalConfidence / totalIkanProses) : 0;
@@ -232,14 +226,15 @@ export const updateBatchStatus = async (batchId, status) => {
   };
 };
 
-export const getBatchDistribution = async (jenis, search) => {
+export const getBatchDistribution = async (jenis, search, userId) => {
   let query = supabase.from("batches").select(`
       *,
       fishes (
         id,
         prediction_results ( grade )
       )
-    `);
+    `)
+    .eq("user_id", userId);
 
   if (jenis) {
     query = query.eq("fish_category", jenis);
@@ -341,6 +336,7 @@ export const getFishesByBatch = async (batchId) => {
     const pred = Array.isArray(fish.prediction_results)
       ? fish.prediction_results[0]
       : fish.prediction_results || null;
+      
     let eyeImageUrl = null;
     if (fish.eye_image?.storage_path) {
       const { data: urlData } = supabase.storage
@@ -386,4 +382,61 @@ export const getFishesByBatch = async (batchId) => {
   });
 
   return { fishes };
+};
+
+export const getBatchesByUser = async (userId, statusFilter) => {
+  let query = supabase
+    .from("batches")
+    .select(`
+      *,
+      fishes (
+        id,
+        prediction_results ( grade )
+      )
+    `)
+    .eq("user_id", userId);
+
+  if (statusFilter) {
+    query = query.eq("preprocessed_status", statusFilter);
+  }
+
+  const { data: batches, error } = await query;
+  if (error) throw error;
+
+  const formattedBatches = batches.map(batch => {
+    let gradeA = 0, gradeB = 0, gradeC = 0;
+    let totalProses = 0;
+
+    if (batch.fishes) {
+      batch.fishes.forEach(fish => {
+        const pred = Array.isArray(fish.prediction_results)
+          ? fish.prediction_results[0]
+          : fish.prediction_results;
+
+        if (pred && pred.grade) {
+          totalProses++;
+          const grade = pred.grade.toUpperCase();
+          if (grade === "A") gradeA++;
+          else if (grade === "B") gradeB++;
+          else if (grade === "C") gradeC++;
+        }
+      });
+    }
+
+    return {
+      id: batch.id,
+      jenis: batch.fish_category,
+      tanggal: batch.created_at,
+      status: batch.preprocessed_status,
+      gradeA,
+      gradeB,
+      gradeC,
+      total: totalProses,
+      total_uploaded: batch.fishes ? batch.fishes.length : 0,
+      berat: batch.berat_total || 0,
+      estimasi_jumlah: batch.estimasi_jumlah || batch.fish_count || 0
+    };
+  });
+
+  return { batches: formattedBatches };
 };

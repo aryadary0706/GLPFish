@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, SlidersHorizontal, Upload, ChevronLeft, ChevronRight } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useDistribusi } from '@/hooks/useDistribusi'
+import { useAuth } from '@/hooks/useAuth'
 
 const PER_PAGE = 7
 
@@ -55,7 +56,8 @@ function exportToXlsx(batches) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function StatisticPage() {
   const navigate = useNavigate()
-  const { stats, batches } = useDistribusi()
+  const { user } = useAuth()
+  const { stats, batches, fetchDistribusi } = useDistribusi()
 
   const [search, setSearch] = useState('')
   const [filterJenis, setFilterJenis] = useState('')
@@ -79,7 +81,11 @@ export default function StatisticPage() {
 
   // Reset to page 1 when filter changes
   useEffect(() => { setPage(1) }, [search, filterJenis])
-
+  useEffect(() => {
+    if (user && user.id) {
+      fetchDistribusi(user.id);
+    }
+  }, [user, fetchDistribusi]);
   function handleBatchClick(batch) {
     if (batch.status === 'completed') {
       navigate(`/batches/${batch.id}/hasil`)

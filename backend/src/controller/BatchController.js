@@ -4,7 +4,8 @@ import {
   getBatchResult,
   updateBatchStatus,
   getBatchDistribution,
-  getFishesByBatch
+  getFishesByBatch,
+  getBatchesByUser
 }from "../services/batchService.js";
 
 
@@ -57,7 +58,9 @@ export const updateBatchStatusHandler = async (req, res) => {
 export const getBatchDistributionHandler = async (req, res) => {
   try {
     const { jenis, search } = req.query;
-    const result = await getBatchDistribution(jenis, search);
+    const { userId } = req.params;
+
+    const result = await getBatchDistribution(jenis, search, userId);
     return res.status(200).json(result);
   } catch (error) {
     const status = error.status || 500;
@@ -73,5 +76,23 @@ export const getFishesByBatchHandler = async (req, res) => {
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ error: err.message });
+  }
+};
+
+  export const getBatchesByUserIdHandler = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const { userId } = req.params; // Tangkap ID dari URL (contoh: /api/batches/user/123)
+
+    // Opsional (Fitur Keamanan): 
+    // Mencegah user A ngintip data user B lewat URL, kecuali dia Admin.
+    if (req.user.id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Akses ditolak" });
+    }
+
+    const result = await getBatchesByUser(userId, status);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
