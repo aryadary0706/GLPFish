@@ -107,7 +107,7 @@ export const getBatchResult = async (batchId) => {
       fishes (
         id,
         fish_index,
-        images ( storage_path ),
+        eye_image:images!fishes_eye_image_fk ( storage_path ),
         prediction_results ( 
           grade, 
           confidence_score, 
@@ -118,8 +118,12 @@ export const getBatchResult = async (batchId) => {
     .eq("id", batchId)
     .single();
 
-  if (error || !batch) {
-    throw { status: 404, message: "Batch tidak ditemukan" };
+  if (error) {
+    // Biar kelihatan di Postman kalau ada masalah relasi/tabel
+    throw { status: 500, message: `Supabase Error: ${error.message} (${error.details})` };
+  }
+  if (!batch) {
+    throw { status: 404, message: "Batch memang beneran ga ada di DB" };
   }
 
   let gradeA = 0, gradeB = 0, gradeC = 0;
@@ -135,7 +139,7 @@ export const getBatchResult = async (batchId) => {
       if (fish.prediction_results && fish.prediction_results.length > 0) {
         const pred = fish.prediction_results[0];
         totalIkanProses++;
-        
+
         const grade = pred.grade?.toUpperCase() || "C";
         if (grade === "A") gradeA++;
         else if (grade === "B") gradeB++;
@@ -151,7 +155,7 @@ export const getBatchResult = async (batchId) => {
         let imageUrl = null;
         if (fish.images?.storage_path) {
           const { data: publicUrlData } = supabase.storage
-            .from("images") 
+            .from("images")
             .getPublicUrl(fish.images.storage_path);
           imageUrl = publicUrlData?.publicUrl || null;
         }
@@ -174,7 +178,7 @@ export const getBatchResult = async (batchId) => {
     const minTime = new Date(Math.min(...timestamps));
     const maxTime = new Date(Math.max(...timestamps));
     const diffMs = maxTime - minTime;
-    
+
     const totalSeconds = Math.floor(diffMs / 1000);
     const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
     const seconds = String(totalSeconds % 60).padStart(2, "0");
@@ -347,22 +351,22 @@ export const getFishesByBatch = async (batchId) => {
       gill_image_url: gillImageUrl,
       prediction_results: pred
         ? {
-            grade: pred.grade,
-            label_text: pred.label_text,
-            exportable: pred.exportable,
-            confidence_score: pred.confidence_score
-              ? Math.round(pred.confidence_score * 100)
-              : 0,
-            eyes_status: pred.eyes_status,
-            eyes_confidence_score: pred.eyes_confidence_score
-              ? Math.round(pred.eyes_confidence_score * 100)
-              : 0,
-            gill_status: pred.gill_status,
-            gill_confidence_score: pred.gill_confidence_score
-              ? Math.round(pred.gill_confidence_score * 100)
-              : 0,
-            predicted_at: pred.predicted_at,
-          }
+          grade: pred.grade,
+          label_text: pred.label_text,
+          exportable: pred.exportable,
+          confidence_score: pred.confidence_score
+            ? Math.round(pred.confidence_score * 100)
+            : 0,
+          eyes_status: pred.eyes_status,
+          eyes_confidence_score: pred.eyes_confidence_score
+            ? Math.round(pred.eyes_confidence_score * 100)
+            : 0,
+          gill_status: pred.gill_status,
+          gill_confidence_score: pred.gill_confidence_score
+            ? Math.round(pred.gill_confidence_score * 100)
+            : 0,
+          predicted_at: pred.predicted_at,
+        }
         : null,
     };
   });
