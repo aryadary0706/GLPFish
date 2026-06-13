@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BarChart2, User, Camera, Images, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth'
-import logoGanusa from '../../assets/logo_ganusa.png';
 import { useRole } from '../../hooks/useRole';
 import { useBatches } from '../../hooks/useBatches';
+
+const logoGanusa = new URL('../../assets/Logo_ganusa.png', import.meta.url).href;
 
 export type ActiveMenu = 'camera' | 'gallery' | 'stats' | 'settings' | 'admin';
 
