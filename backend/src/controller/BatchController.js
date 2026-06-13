@@ -6,7 +6,7 @@ import {
   getBatchDistribution,
   getFishesByBatch,
   getBatchesByUser
-}from "../services/batchService.js";
+}from "../services/BatchService.js";
 
 
 export const addBatch = async (req, res) => {
