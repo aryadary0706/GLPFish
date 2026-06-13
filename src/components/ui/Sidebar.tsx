@@ -5,7 +5,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { useRole } from '../../hooks/useRole';
 import { useBatches } from '../../hooks/useBatches';
 
-const logoGanusa = new URL('../../assets/Logo_ganusa.png', import.meta.url).href;
+// Use public folder asset path instead of importing from src
+const logoGanusa = '/Logo_ganusa.png';
 
 export type ActiveMenu = 'camera' | 'gallery' | 'stats' | 'settings' | 'admin';
 
