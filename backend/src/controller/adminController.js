@@ -7,7 +7,7 @@ import {
   getUsersData,
   getUserDetailData,
   getRecapFile
-} from '../services/adminService.js'
+} from '../services/AdminService.js'
 
 function getErrorStatus(error) {
   return error.statusCode || error.status || 500
