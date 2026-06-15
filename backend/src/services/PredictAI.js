@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase.js";
 import { checkModelHealth, predictFishQuality } from "../lib/model.js";
+import { cleanupBatchImages } from "./UploadImages.js";
 
 export const QualityPred = async (batchId) => {
   // 1. Cek batch ada dan statusnya
@@ -40,6 +41,8 @@ export const QualityPred = async (batchId) => {
   // 4. Cek model health
   const modelReady = await checkModelHealth();
   if (!modelReady) {
+    // Cleanup images jika model tidak siap
+    await cleanupBatchImages(batchId);
     await supabase
       .from("batches")
       .update({ status: "failed", preprocessed_status: "rejected" })
@@ -54,6 +57,7 @@ export const QualityPred = async (batchId) => {
   const pendingFishes = allFishes.filter((f) => f.status === "pending");
   const results = [];
   const errors = [];
+  const failedFishes = []; // Track fishes yang gagal untuk di-cleanup
 
   for (const fish of pendingFishes) {
     try {
@@ -139,10 +143,15 @@ export const QualityPred = async (batchId) => {
       });
     } catch (fishErr) {
       console.error(`[predict] ikan #${fish.fish_index}:`, fishErr.message);
-      await supabase
-        .from("fishes")
-        .update({ status: "failed" })
-        .eq("id", fish.id);
+      
+      // Track fish yang gagal untuk di-cleanup nanti
+      failedFishes.push({
+        fishId: fish.id,
+        fishIndex: fish.fish_index,
+        eyeImageId: fish.eye_image_id,
+        gillImageId: fish.gill_image_id,
+      });
+
       errors.push({
         fish_id: fish.id,
         fish_index: fish.fish_index,
@@ -151,7 +160,61 @@ export const QualityPred = async (batchId) => {
     }
   }
 
+  // Cleanup fishes yang gagal (jangan simpan ikan yang error)
+  for (const failedFish of failedFishes) {
+    try {
+      // Ambil storage paths sebelum delete
+      const { data: images } = await supabase
+        .from("images")
+        .select("storage_path")
+        .in("id", [failedFish.eyeImageId, failedFish.gillImageId]);
+
+      const pathsToDelete = (images || [])
+        .map(img => img.storage_path)
+        .filter(p => p);
+
+      // Hapus dari storage
+      if (pathsToDelete.length > 0) {
+        await supabase.storage.from("images").remove(pathsToDelete);
+      }
+
+      // Hapus image records
+      if (failedFish.eyeImageId || failedFish.gillImageId) {
+        const imageIds = [failedFish.eyeImageId, failedFish.gillImageId].filter(id => id);
+        if (imageIds.length > 0) {
+          await supabase.from("images").delete().in("id", imageIds);
+        }
+      }
+
+      // Hapus fish record
+      await supabase.from("fishes").delete().eq("id", failedFish.fishId);
+      
+      console.log(`[cleanup] Hapus failed fish #${failedFish.fishIndex} dan images nya`);
+    } catch (cleanupErr) {
+      console.error(`[cleanup] Error hapus failed fish #${failedFish.fishIndex}:`, cleanupErr.message);
+    }
+  }
+
   const allFailed = results.length === 0;
+
+  // Jika semua prediction gagal, hapus semua images
+  if (allFailed) {
+    console.log(`[predict] Semua prediction gagal untuk batch ${batchId}, cleanup images...`);
+    await cleanupBatchImages(batchId);
+    
+    await supabase
+      .from("batches")
+      .update({
+        status: "failed",
+        preprocessed_status: "rejected",
+      })
+      .eq("id", batchId);
+
+    throw {
+      status: 400,
+      message: `Prediction gagal untuk semua ikan di batch ini. Images telah dihapus.`,
+    };
+  }
 
   const avgConfidence =
     results.length > 0
@@ -161,14 +224,14 @@ export const QualityPred = async (batchId) => {
   await supabase
     .from("batches")
     .update({
-      status: allFailed ? "failed" : "done",
-      preprocessed_status: allFailed ? "rejected" : "saved",
+      status: "done",
+      preprocessed_status: "saved",
       confidence_score_avg: avgConfidence,
     })
     .eq("id", batchId);
 
   return {
-    success: !allFailed,
+    success: true,
     batch_id: batchId,
     total: pendingFishes.length,
     success_count: results.length,
