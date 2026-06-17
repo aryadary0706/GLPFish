@@ -41,15 +41,15 @@ export const QualityPred = async (batchId) => {
   // 4. Cek model health
   const modelReady = await checkModelHealth();
   if (!modelReady) {
-    // Cleanup images jika model tidak siap
-    await cleanupBatchImages(batchId);
+    // Jangan reject / hapus gambar — error sistem, bukan kesalahan user.
+    // Reset status agar user bisa retry begitu model siap kembali.
     await supabase
       .from("batches")
-      .update({ status: "failed", preprocessed_status: "rejected" })
+      .update({ status: "pending" })
       .eq("id", batchId);
     throw {
       status: 503,
-      message: "Model server tidak tersedia, coba beberapa saat lagi.",
+      message: "Model server belum siap (kemungkinan cold start). Tunggu sebentar lalu coba lagi — batch & foto Anda tetap tersimpan.",
     };
   }
 

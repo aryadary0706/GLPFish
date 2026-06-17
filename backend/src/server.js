@@ -50,3 +50,13 @@ app.use((_, res) => res.status(404).json({ error: 'Route tidak ditemukan' }))
 
 const PORT = process.env.PORT ?? 4000
 app.listen(PORT, () => console.log(`✅ Backend running → http://localhost:${PORT}`))
+
+// Tambahkan kondisi ini di bagian bawah file:
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+// Wajib diekspor untuk Vercel
+export default app;

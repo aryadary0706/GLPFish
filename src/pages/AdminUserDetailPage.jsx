@@ -113,7 +113,7 @@ export default function AdminUserDetailPage() {
 
           {/* Stats + chart */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
                 <p className="text-2xl font-bold text-gray-900">{user.totalInspeksi.toLocaleString('id-ID')}</p>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
@@ -121,16 +121,31 @@ export default function AdminUserDetailPage() {
                 </p>
               </div>
               <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
-                <p className="text-2xl font-bold text-green-600">{user.gradeAPercent}%</p>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
-                  <TrendingUp size={10} /> Grade A Avg
-                </p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
                 <p className="text-2xl font-bold text-orange-500">{user.totalBatch}</p>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
                   <BarChart2 size={10} /> Total Batch
                 </p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
+                <p className="text-2xl font-bold text-green-600">{user.gradeAPercent}%</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                  <TrendingUp size={10} /> Grade A
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{user.totalGradeA ?? 0} ekor</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
+                <p className="text-2xl font-bold text-orange-400">{user.gradeBPercent ?? 0}%</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                  <TrendingUp size={10} /> Grade B
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{user.totalGradeB ?? 0} ekor</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm text-center">
+                <p className="text-2xl font-bold text-red-500">{user.gradeCPercent ?? 0}%</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                  <TrendingUp size={10} /> Grade C
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{user.totalGradeC ?? 0} ekor</p>
               </div>
             </div>
 
@@ -174,6 +189,8 @@ export default function AdminUserDetailPage() {
                   <th className="px-3 py-3 text-left">Jenis Ikan</th>
                   <th className="px-3 py-3 text-right">Inspeksi</th>
                   <th className="px-3 py-3 text-right">Grade A</th>
+                  <th className="px-3 py-3 text-right">Grade B</th>
+                  <th className="px-3 py-3 text-right">Grade C</th>
                   <th className="px-3 py-3 text-left">Status</th>
                   <th className="px-6 py-3 text-left">Tanggal</th>
                 </tr>
@@ -181,12 +198,30 @@ export default function AdminUserDetailPage() {
               <tbody>
                 {recentBatches.map(b => (
                   <tr key={b.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 font-semibold text-orange-600 text-xs">{b.id}</td>
+                    <td className="px-6 py-3 text-xs">
+                      <button
+                        onClick={() => navigate(`/batches/${b.id}/hasil`)}
+                        className="font-semibold text-orange-600 hover:text-orange-700 hover:underline transition-colors"
+                        title="Lihat detail hasil batch"
+                      >
+                        {b.id}
+                      </button>
+                    </td>
                     <td className="px-3 py-3 text-gray-700 text-xs">{b.fishCategory || '-'}</td>
                     <td className="px-3 py-3 text-right font-bold text-gray-800 text-xs">{b.totalInspeksi}</td>
                     <td className="px-3 py-3 text-right">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${b.gradeAPercent >= 65 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-600'}`}>
-                        {b.gradeAPercent}%
+                        {b.totalGradeA ?? 0} <span className="text-[10px] font-semibold opacity-70">({b.gradeAPercent}%)</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-500">
+                        {b.totalGradeB ?? 0} <span className="text-[10px] font-semibold opacity-70">({b.gradeBPercent ?? 0}%)</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-500">
+                        {b.totalGradeC ?? 0} <span className="text-[10px] font-semibold opacity-70">({b.gradeCPercent ?? 0}%)</span>
                       </span>
                     </td>
                     <td className="px-3 py-3">

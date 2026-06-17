@@ -4,6 +4,8 @@ import { Search, SlidersHorizontal, Upload, ChevronLeft, ChevronRight, Ban } fro
 import * as XLSX from 'xlsx'
 import { useDistribusi } from '@/hooks/useDistribusi'
 import { useAuth } from '@/hooks/useAuth'
+import { useRole } from '@/hooks/useRole'
+import { AdminService } from '@/services/AdminServices'
 
 const PER_PAGE = 7
 
@@ -12,15 +14,21 @@ const CURRENT_MONTH = MONTHS_ID[new Date().getMonth()]
 const CURRENT_YEAR = new Date().getFullYear()
 
 // ─── Distribusi bar mini ──────────────────────────────────────────────────────
-function DistribusiBar({ gradeA, gradeB, gradeC, total }) {
-  const pA = (gradeA / total) * 100
-  const pB = (gradeB / total) * 100
-  const pC = (gradeC / total) * 100
+// Track abu-abu = jumlah grade keseluruhan (bar kosong); 3 segmen warna mengisinya
+// proporsional terhadap grade A (hijau), B (oranye), C (merah).
+function DistribusiBar({ gradeA = 0, gradeB = 0, gradeC = 0, total = 0 }) {
+  const safe = total > 0 ? total : 1
+  const pA = (gradeA / safe) * 100
+  const pB = (gradeB / safe) * 100
+  const pC = (gradeC / safe) * 100
   return (
-    <div className="flex items-center h-2.5 w-32 gap-[2px]">
-      <div style={{ width: `${pA}%` }} className="h-full bg-green-500 rounded-l-full" />
+    <div
+      className="flex items-center h-2.5 w-32 bg-gray-100 rounded-full overflow-hidden border border-gray-200"
+      title={`Total ${total} · A:${gradeA} B:${gradeB} C:${gradeC}`}
+    >
+      <div style={{ width: `${pA}%` }} className="h-full bg-green-500" />
       <div style={{ width: `${pB}%` }} className="h-full bg-orange-400" />
-      <div style={{ width: `${pC}%` }} className="h-full bg-red-400 rounded-r-full" />
+      <div style={{ width: `${pC}%` }} className="h-full bg-red-400" />
     </div>
   )
 }
@@ -36,7 +44,7 @@ function StatCard({ label, value, valueClass = 'text-gray-900' }) {
 }
 
 // ─── Export xlsx ─────────────────────────────────────────────────────────────
-function exportToXlsx(batches) {
+function exportToXlsx(batches, { includeOleh = false } = {}) {
   const rows = batches.map(b => ({
     'Batch ID': b.id,
     'Tanggal': b.date,
@@ -46,6 +54,7 @@ function exportToXlsx(batches) {
     'Grade C': b.gradeC,
     'Total': b.total,
     'Berat (kg)': b.berat,
+    ...(includeOleh ? { 'Oleh': b.oleh || '-' } : {}),
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
@@ -57,7 +66,14 @@ function exportToXlsx(batches) {
 export default function StatisticPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { stats, batches, fetchDistribusi } = useDistribusi()
+  const { isAdmin } = useRole()
+  const { stats: distStats, batches: distBatches, fetchDistribusi } = useDistribusi()
+
+  const [adminStats, setAdminStats] = useState(null)
+  const [adminBatches, setAdminBatches] = useState([])
+
+  const stats   = isAdmin && adminStats ? adminStats : distStats
+  const batches = isAdmin ? adminBatches : distBatches
 
   const [search, setSearch] = useState('')
   const [filterJenis, setFilterJenis] = useState('')
@@ -70,24 +86,72 @@ export default function StatisticPage() {
     let result = batches
     if (search.trim()) {
       const q = search.toLowerCase()
-      result = result.filter(b => b.id.toLowerCase().includes(q) || b.jenis.toLowerCase().includes(q))
+      result = result.filter(b =>
+        b.id.toLowerCase().includes(q) ||
+        b.jenis.toLowerCase().includes(q) ||
+        (isAdmin && (b.oleh || '').toLowerCase().includes(q))
+      )
     }
     if (filterJenis) result = result.filter(b => b.jenis === filterJenis)
     return result
-  }, [batches, search, filterJenis])
+  }, [batches, search, filterJenis, isAdmin])
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE)
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   // Reset to page 1 when filter changes
   useEffect(() => { setPage(1) }, [search, filterJenis])
+
   useEffect(() => {
-    if (user && user.id) {
-      fetchDistribusi(user.id);
+    if (isAdmin) {
+      AdminService.getRecentBatches({ limit: 50 })
+        .then(rb => {
+          const all = (rb || []).map(b => {
+            const total   = b.totalInspeksi || 0
+            const gradeA  = b.gradeA || 0
+            const gradeC  = b.reject || 0
+            const gradeB  = Math.max(0, total - gradeA - gradeC)
+            const rawDate = b.createdAt ? new Date(b.createdAt) : null
+            const date    = rawDate
+              ? rawDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+              : (b.tanggal || '-')
+            const status  = b.preprocessedStatus === 'rejected'
+              ? 'rejected'
+              : (b.status === 'done' ? 'completed' : b.status)
+            return {
+              id: b.id,
+              date,
+              jenis: b.fishCategory || '-',
+              gradeA,
+              gradeB,
+              gradeC,
+              total,
+              berat: parseFloat(b.beratTotal || 0),
+              status,
+              oleh: b.userName || b.userEmail || '-',
+            }
+          })
+          const totalIkan   = all.reduce((s, b) => s + b.total, 0)
+          const totalGradeA = all.reduce((s, b) => s + b.gradeA, 0)
+          const totalGradeC = all.reduce((s, b) => s + b.gradeC, 0)
+          setAdminBatches(all)
+          setAdminStats({
+            totalBatch:    all.length,
+            totalIkan,
+            gradeAPercent: totalIkan > 0 ? Math.round((totalGradeA / totalIkan) * 100) : 0,
+            rejectPercent: totalIkan > 0 ? Math.round((totalGradeC / totalIkan) * 100) : 0,
+          })
+        })
+        .catch(err => console.error('Gagal memuat batch admin:', err))
+    } else if (user && user.id) {
+      fetchDistribusi(user.id)
     }
-  }, [user, fetchDistribusi]);
+  }, [user, isAdmin, fetchDistribusi])
+
   function handleBatchClick(batch) {
-    if (batch.status === 'completed') {
+    if (batch.status === 'completed' || batch.status === 'done') {
+      navigate(`/batches/${batch.id}/hasil`)
+    } else if (batch.status === 'rejected') {
       navigate(`/batches/${batch.id}/hasil`)
     } else {
       navigate(`/batches/${batch.id}/upload`)
@@ -112,7 +176,7 @@ export default function StatisticPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Cari batch..."
+              placeholder={isAdmin ? 'Cari batch / pemilik...' : 'Cari batch...'}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-400 w-48"
@@ -156,7 +220,7 @@ export default function StatisticPage() {
 
           {/* Export */}
           <button
-            onClick={() => exportToXlsx(filtered)}
+            onClick={() => exportToXlsx(filtered, { includeOleh: isAdmin })}
             className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-[#f58220] text-white rounded-xl hover:bg-orange-600 transition-colors"
           >
             <Upload size={15} />
@@ -178,7 +242,10 @@ export default function StatisticPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              {['Batch','Tanggal','Jenis','Grade A','Grade B','Grade C','Total','Distribusi','Berat'].map(h => (
+              {[
+                'Batch','Tanggal','Jenis','Grade A','Grade B','Grade C','Total','Distribusi','Berat',
+                ...(isAdmin ? ['Oleh'] : []),
+              ].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
                   {h}
                 </th>
@@ -188,7 +255,7 @@ export default function StatisticPage() {
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={isAdmin ? 10 : 9} className="px-4 py-12 text-center text-gray-400 text-sm">
                   Tidak ada batch ditemukan
                 </td>
               </tr>
@@ -230,6 +297,9 @@ export default function StatisticPage() {
                     <DistribusiBar gradeA={batch.gradeA} gradeB={batch.gradeB} gradeC={batch.gradeC} total={batch.total} />
                   </td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.berat} kg</td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{batch.oleh || '-'}</td>
+                  )}
                 </tr>
               )
             })}

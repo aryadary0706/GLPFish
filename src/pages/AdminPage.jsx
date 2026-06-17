@@ -149,11 +149,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     const params = { dari: applied.dari, sampai: applied.sampai }
+    const chartParams = { ...params, jenis: applied.jenis, status: applied.status }
     setLoading(true)
     setError(null)
     Promise.all([
       AdminService.getSummary(params),
-      AdminService.getChart(params),
+      AdminService.getChart(chartParams),
       AdminService.getRecentBatches({ limit: 50 }),
       AdminService.getTopUsers({ limit: 5 }),
       AdminService.getActivity({ limit: 10 }),
@@ -171,7 +172,7 @@ export default function AdminPage() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [applied.dari, applied.sampai])
+  }, [applied.dari, applied.sampai, applied.jenis, applied.status])
 
   function changeFilter(key, val) { setFilters(prev => ({ ...prev, [key]: val })) }
   function applyFilter()  { setApplied({ ...filters }) }
@@ -380,7 +381,15 @@ export default function AdminPage() {
                     const isRejected = b.preprocessedStatus === 'rejected'
                     return (
                       <tr key={b.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-3 font-semibold text-orange-600 text-xs">{b.id}</td>
+                        <td className="px-5 py-3 text-xs">
+                          <button
+                            onClick={() => navigate(`/batches/${b.id}/hasil`)}
+                            className="font-semibold text-orange-600 hover:text-orange-700 hover:underline transition-colors"
+                            title="Lihat detail hasil batch"
+                          >
+                            {b.id}
+                          </button>
+                        </td>
                         <td className="px-3 py-3 text-gray-700 text-xs">{b.fishCategory || '-'}</td>
                         <td className="px-3 py-3">
                           {isRejected ? (

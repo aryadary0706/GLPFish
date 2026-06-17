@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Camera, ChevronRight, Check, X, Plus, Ban } from 'lucide-react';
+import { Camera, ChevronRight, Check, Clock, Plus, Ban, BrainCircuit } from 'lucide-react';
 import { FormField } from '../components/ui/FormField';
 import { useBatches } from '../hooks/useBatches';
 import { useNavigate } from 'react-router-dom';
@@ -166,9 +166,10 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
           </h3>
           <div className="flex flex-col gap-3">
             {batches.map((batch: any, idx: number) => {
-              const isRejected = batch.status === 'rejected';
-              const isSaved = batch.status === 'saved';
-              const isCompleted = isSaved || isRejected;
+              const isRejected     = batch.status === 'rejected';
+              const isSaved        = batch.status === 'saved';
+              const isReadyPredict = batch.status === 'completed';
+              const isFinal        = isSaved || isRejected;
 
               const formattedDate = new Date(batch.tanggal).toLocaleDateString('id-ID', {
                 day: 'numeric',
@@ -180,10 +181,10 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
                 <div
                   key={idx}
                   onClick={() => {
-                    if (!isCompleted) {
-                      onNavigateToUpload({ batchId: batch.id });
-                    } else {
+                    if (isFinal) {
                       navigate(`/batches/${batch.id}/hasil`);
+                    } else {
+                      onNavigateToUpload({ batchId: batch.id });
                     }
                   }}
                   className={`bg-white border rounded-xl p-4 flex items-center justify-between transition-colors shadow-sm cursor-pointer ${
@@ -205,9 +206,13 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
                       <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-md text-[11px] font-semibold">
                         <Check size={12} /> Completed
                       </span>
+                    ) : isReadyPredict ? (
+                      <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md text-[11px] font-semibold">
+                        <BrainCircuit size={12} /> Siap Prediksi
+                      </span>
                     ) : (
-                      <span className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded-md text-[11px] font-semibold">
-                        <X size={12} /> Incomplete
+                      <span className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-1 rounded-md text-[11px] font-semibold">
+                        <Clock size={12} /> Belum selesai
                       </span>
                     )}
                     <ChevronRight size={16} className="text-gray-400" />

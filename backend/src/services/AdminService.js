@@ -338,6 +338,14 @@ function buildBatchStats(batches, fishes, predictions) {
       return normalizeGrade(prediction.grade) === 'A'
     }).length
 
+    const totalGradeB = batchPredictions.filter((prediction) => {
+      return normalizeGrade(prediction.grade) === 'B'
+    }).length
+
+    const totalGradeC = batchPredictions.filter((prediction) => {
+      return normalizeGrade(prediction.grade) === 'C'
+    }).length
+
     const totalReject = batchPredictions.filter((prediction) => {
       const grade = normalizeGrade(prediction.grade)
       return grade === 'C' || prediction.exportable === false
@@ -348,6 +356,8 @@ function buildBatchStats(batches, fishes, predictions) {
         ? batch.confidence_score_avg
         : average(batchPredictions.map((prediction) => prediction.confidence_score))
 
+    const denom = totalPrediksi || totalInspeksi
+
     return {
       ...batch,
       fishes: batchFishes,
@@ -355,9 +365,13 @@ function buildBatchStats(batches, fishes, predictions) {
       totalInspeksi,
       totalPrediksi,
       totalGradeA,
+      totalGradeB,
+      totalGradeC,
       totalReject,
-      gradeAPercent: calculatePercent(totalGradeA, totalPrediksi || totalInspeksi),
-      rejectPercent: calculatePercent(totalReject, totalPrediksi || totalInspeksi),
+      gradeAPercent: calculatePercent(totalGradeA, denom),
+      gradeBPercent: calculatePercent(totalGradeB, denom),
+      gradeCPercent: calculatePercent(totalGradeC, denom),
+      rejectPercent: calculatePercent(totalReject, denom),
       confidenceScoreAvg
     }
   })
@@ -458,8 +472,10 @@ export async function getSummaryData(query = {}) {
 
 export async function getChartData(query = {}) {
   const { dari, sampai } = getDateRange(query)
+  const jenis  = query.jenis  && query.jenis  !== 'Semua' ? query.jenis  : null
+  const status = query.status && query.status !== 'Semua' ? query.status : null
 
-  const { data: batchesData, error: batchesError } = await supabase
+  let req = supabase
     .from('batches')
     .select(`
       id,
@@ -478,6 +494,13 @@ export async function getChartData(query = {}) {
     .gte('created_at', startOfDay(dari))
     .lte('created_at', endOfDay(sampai))
     .order('created_at', { ascending: true })
+
+  if (jenis) req = req.eq('fish_category', jenis)
+  if (status === 'Selesai')     req = req.eq('status', 'done')
+  else if (status === 'Gagal')  req = req.eq('status', 'failed')
+  else if (status === 'Proses') req = req.not('status', 'in', '(done,failed)')
+
+  const { data: batchesData, error: batchesError } = await req
 
   if (batchesError) throw batchesError
 
@@ -531,7 +554,20 @@ export async function getChartData(query = {}) {
     if (grade === 'C' || prediction.exportable === false) grouped[tanggal].reject += 1
   })
 
-  return Object.values(grouped).map((item) => ({
+  // Isi semua hari dalam rentang [dari, sampai] agar chart secara visual
+  // mencerminkan rentang yang dipilih (hari tanpa data muncul sebagai 0).
+  const allDays = []
+  const startMs = new Date(`${dari}T00:00:00.000Z`).getTime()
+  const endMs   = new Date(`${sampai}T00:00:00.000Z`).getTime()
+  for (let t = startMs; t <= endMs; t += 24 * 60 * 60 * 1000) {
+    const tanggal = new Date(t).toISOString().slice(0, 10)
+    const item = grouped[tanggal] || {
+      tanggal, totalBatch: 0, totalInspeksi: 0, totalPrediksi: 0, gradeA: 0, reject: 0,
+    }
+    allDays.push(item)
+  }
+
+  return allDays.map((item) => ({
     tanggal: item.tanggal,
     totalBatch: item.totalBatch,
     totalInspeksi: item.totalInspeksi,
@@ -1031,6 +1067,14 @@ export async function getUserDetailData(id) {
     (sum, batch) => sum + batch.totalGradeA,
     0
   )
+  const totalGradeB = batchesWithStats.reduce(
+    (sum, batch) => sum + batch.totalGradeB,
+    0
+  )
+  const totalGradeC = batchesWithStats.reduce(
+    (sum, batch) => sum + batch.totalGradeC,
+    0
+  )
   const totalReject = batchesWithStats.reduce(
     (sum, batch) => sum + batch.totalReject,
     0
@@ -1059,7 +1103,12 @@ export async function getUserDetailData(id) {
     preprocessedStatus: batch.preprocessed_status,
     totalInspeksi: batch.totalInspeksi,
     totalPrediksi: batch.totalPrediksi,
+    totalGradeA: batch.totalGradeA,
+    totalGradeB: batch.totalGradeB,
+    totalGradeC: batch.totalGradeC,
     gradeAPercent: batch.gradeAPercent,
+    gradeBPercent: batch.gradeBPercent,
+    gradeCPercent: batch.gradeCPercent,
     rejectPercent: batch.rejectPercent
   }))
 
@@ -1073,7 +1122,12 @@ export async function getUserDetailData(id) {
     totalBatch,
     totalInspeksi,
     totalPrediksi,
+    totalGradeA,
+    totalGradeB,
+    totalGradeC,
     gradeAPercent: calculatePercent(totalGradeA, totalPrediksi || totalInspeksi),
+    gradeBPercent: calculatePercent(totalGradeB, totalPrediksi || totalInspeksi),
+    gradeCPercent: calculatePercent(totalGradeC, totalPrediksi || totalInspeksi),
     rejectPercent: calculatePercent(totalReject, totalPrediksi || totalInspeksi),
     lastActive: formatDate(lastActiveRaw),
     lastActiveRaw,

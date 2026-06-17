@@ -59,7 +59,7 @@ export default function LoginPage() {
           <div className="mb-3 flex items-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden">
               <img
-                src="/src/assets/Logo_ganusa.png"
+                src="/Logo_ganusa.png"
                 alt="Logo Ganusa"
                 className="h-full w-full object-contain"
               />
