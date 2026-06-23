@@ -24,8 +24,10 @@ export const addBatch = async (req, res) => {
 export const getBatches = async (req, res) => {
   try {
     const { status } = req.query;
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
 
-    const result = await getAllBatches(status);
+    const result = await getAllBatches(status, userId, isAdmin);
     return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -46,13 +48,13 @@ export const getBatchResultHandler = async (req, res) => {
 export const updateBatchStatusHandler = async (req, res) => {
   try {
     const { batchId } = req.params;
-    const { status } = req.body;
+    const { status, reject_reason } = req.body;
 
     if (status === "rejected" && req.user?.role !== "admin") {
       return res.status(403).json({ error: "Hanya admin yang dapat menolak batch." });
     }
 
-    const result = await updateBatchStatus(batchId, status);
+    const result = await updateBatchStatus(batchId, status, reject_reason);
     return res.status(200).json(result);
   } catch (error) {
     const status = error.status || 500;

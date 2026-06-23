@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BarChart2, User, Camera, Images, Settings, LogOut, ShieldCheck } from 'lucide-react';
+import { BarChart2, User, Camera, Images, Settings, LogOut, UserCog } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth'
 import { useRole } from '../../hooks/useRole';
@@ -37,15 +37,26 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
     if (userId) fetchBatches(userId);
   }, [userId, fetchBatches]);
 
-  const handleCameraClick = () => {
-    const inProgress = batches.find(
-      (b: any) => b.status !== 'saved' && b.status !== 'rejected'
+  const handleCameraClick = async () => {
+    // Refetch agar selalu pakai data terbaru (mis. user baru reject batch).
+    // fetchBatches sudah return sorted DESC by tanggal.
+    const fresh = userId ? await fetchBatches(userId) : [];
+    const list = (fresh as any[]) || [];
+    if (list.length === 0) {
+      navigate('/batches/create');
+      return;
+    }
+    // Cari batch pertama (terbaru → mundur) yang belum final.
+    const inProgress = list.find(
+      (b) => b.status !== 'saved' && b.status !== 'rejected'
     );
     if (inProgress) {
       navigate(`/batches/${inProgress.id}/upload`);
-    } else {
-      navigate('/batches/create');
+      return;
     }
+    // Semua sudah final → arahkan ke hasil batch terbaru.
+    // Pakai query ?via=upload supaya sidebar tetap highlight Upload.
+    navigate(`/batches/${list[0].id}/hasil?via=upload`);
   };
 
   async function handleLogout() {
@@ -94,7 +105,7 @@ export const Sidebar = ({ activeMenu = 'gallery' }: SidebarProps) => {
         {navBtn(activeMenu === 'camera',  handleCameraClick, <Camera size={24} />, 'Upload')}
         {navBtn(activeMenu === 'gallery', () => navigate('/batches/create'),            <Images size={24} />,     'Batch')}
         {navBtn(activeMenu === 'stats',   () => navigate('/statistic'),                 <BarChart2 size={24} />,  'Statistik')}
-        {isAdmin && navBtn(activeMenu === 'admin',   () => navigate('/admin'),     <ShieldCheck size={24} />, 'Admin')}
+        {isAdmin && navBtn(activeMenu === 'admin',   () => navigate('/admin'),     <UserCog size={24} />, 'Admin')}
       </nav>
 
       {/* Bottom: Settings + Profile */}

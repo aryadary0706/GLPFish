@@ -1,0 +1,1 @@
+- [Backend env loading pattern](project_env_loading_pattern.md) — libs that read process.env at module scope must call dotenv.config themselves; server.js loads it too late.

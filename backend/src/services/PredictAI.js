@@ -30,7 +30,39 @@ export const QualityPred = async (batchId) => {
     throw { status: 400, message: "Belum ada ikan di batch ini." };
   }
 
-  // 3. Update batch jadi processing
+  // 3. Jika semua ikan sudah punya prediksi (predict per-upload sudah jalan), skip loop.
+  const pendingFishesPreview = allFishes.filter((f) => f.status === "pending");
+  if (pendingFishesPreview.length === 0) {
+    const { data: existingPreds } = await supabase
+      .from("prediction_results")
+      .select("confidence_score")
+      .in("fish_id", allFishes.map((f) => f.id));
+
+    const avg = existingPreds && existingPreds.length > 0
+      ? existingPreds.reduce((s, p) => s + (p.confidence_score || 0), 0) / existingPreds.length
+      : null;
+
+    await supabase
+      .from("batches")
+      .update({
+        status: "done",
+        preprocessed_status: "saved",
+        confidence_score_avg: avg,
+      })
+      .eq("id", batchId);
+
+    return {
+      success: true,
+      batch_id: batchId,
+      total: allFishes.length,
+      success_count: allFishes.length,
+      fail_count: 0,
+      results: [],
+      already_predicted: true,
+    };
+  }
+
+  // 4. Update batch jadi processing
   const { error: startBatchErr } = await supabase
     .from("batches")
     .update({ status: "processing", submitted_at: new Date().toISOString() })
@@ -38,7 +70,7 @@ export const QualityPred = async (batchId) => {
 
   if (startBatchErr) throw startBatchErr;
 
-  // 4. Cek model health
+  // 5. Cek model health
   const modelReady = await checkModelHealth();
   if (!modelReady) {
     // Jangan reject / hapus gambar — error sistem, bukan kesalahan user.
@@ -195,13 +227,19 @@ export const QualityPred = async (batchId) => {
     }
   }
 
-  const allFailed = results.length === 0;
+  // Cek apakah ada ikan lain yang SUDAH punya prediksi (dari per-upload predict)
+  const { data: existingPredsAfter } = await supabase
+    .from("prediction_results")
+    .select("fish_id, confidence_score")
+    .in("fish_id", allFishes.map((f) => f.id));
 
-  // Jika semua prediction gagal, hapus semua images
-  if (allFailed) {
+  const hasAnyPrediction = (existingPredsAfter && existingPredsAfter.length > 0) || results.length > 0;
+
+  // Hanya nuke kalau benar-benar nol ikan terprediksi di seluruh batch
+  if (!hasAnyPrediction) {
     console.log(`[predict] Semua prediction gagal untuk batch ${batchId}, cleanup images...`);
     await cleanupBatchImages(batchId);
-    
+
     await supabase
       .from("batches")
       .update({
@@ -217,8 +255,8 @@ export const QualityPred = async (batchId) => {
   }
 
   const avgConfidence =
-    results.length > 0
-      ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length
+    existingPredsAfter && existingPredsAfter.length > 0
+      ? existingPredsAfter.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / existingPredsAfter.length
       : null;
 
   await supabase

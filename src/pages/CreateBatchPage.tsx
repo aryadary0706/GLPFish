@@ -21,15 +21,8 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
   const { createBatch, fetchBatches, loading, batches } = useBatches();
   const navigate = useNavigate();
   useEffect(() => {
-    console.log("1. Data User saat ini:", user); // CCTV 1: Lihat bentuk objek user
-
-    // Cari ID dengan aman (mengakali kalau posisinya ngumpet di user.user.id)
-    const currentUserId = user?.id || user?.user?.id; 
-
-    console.log("2. ID yang didapat:", currentUserId); // CCTV 2: Pastikan ID-nya dapet
-
+    const currentUserId = user?.id || user?.user?.id;
     if (currentUserId) {
-      console.log("3. Memanggil API fetchBatches..."); // CCTV 3: Pastikan fungsi dipanggil
       fetchBatches(currentUserId);
     }
   }, [user, fetchBatches]);
@@ -49,8 +42,7 @@ export const CreateBatchPage = ({ onNavigateToUpload }: CreateBatchPageProps) =>
     try {
       const newBatch = await createBatch(payload);
       onNavigateToUpload({ batchId: newBatch.id });
-    } catch (error) {
-      console.error("Gagal membuat batch:", error);
+    } catch {
       alert("Terjadi kesalahan saat membuat batch. Coba lagi.");
     }
   };

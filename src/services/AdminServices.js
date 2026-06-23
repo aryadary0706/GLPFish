@@ -26,8 +26,10 @@ export const AdminService = {
     return data.activities
   },
 
-  async rejectBatch(batchId) {
-    const { data } = await api.patch(`/batches/${batchId}/status`, { status: 'rejected' })
+  async rejectBatch(batchId, rejectReason) {
+    const payload = { status: 'rejected' }
+    if (rejectReason) payload.reject_reason = rejectReason
+    const { data } = await api.patch(`/batches/${batchId}/status`, payload)
     return data
   },
 

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
 
-import { requireAdmin, requireAuth } from "../middleware/auth.js";
-import { uploadImages } from "../controller/ImageController.js";
+import { requireAdmin, requireAuth, requireBatchOwner } from "../middleware/auth.js";
+import { uploadImages, replaceFishImages } from "../controller/ImageController.js";
 import { getInspectionDetails, getInspections, predictBatch } from "../controller/InspectionController.js";
 
 const router = Router();
@@ -32,10 +32,14 @@ const uploadMiddleware = upload.fields([
 // ==========================================
 
 // Rute upload gambar kita (WAJIB '/images' agar sesuai dengan Frontend)
-router.post("/images", requireAuth, uploadMiddleware, uploadImages);
+router.post("/images", requireAuth, uploadMiddleware, requireBatchOwner, uploadImages);
+
+// Rute retake (replace foto ikan + re-predict otomatis)
+// Ownership cek lewat fish_id (requireBatchOwner resolve ke batch_id otomatis)
+router.post("/replace", requireAuth, uploadMiddleware, requireBatchOwner, replaceFishImages);
 
 // Rute fitur lain
-router.post("/predict", requireAuth, predictBatch);
+router.post("/predict", requireAuth, requireBatchOwner, predictBatch);
 router.get("/", requireAuth, requireAdmin, getInspections);
 router.get("/:id", requireAuth, requireAdmin, getInspectionDetails);
 

@@ -45,18 +45,27 @@ export function useBatches() {
   const [error,   setError]   = useState(null)
   const [batches, setBatches] = useState([]) // 👈 Langsung mulai dengan array kosong, hapus MOCK_RECENT
 
-  const fetchBatches = useCallback(async (userId) => { 
-    if (!userId) return; // Mencegah error kalau user belum ter-load
+  const fetchBatches = useCallback(async (userId) => {
+    if (!userId) return []; // Mencegah error kalau user belum ter-load
 
     setLoading(true)
     setError(null)
     try {
       // Pastikan URL-nya menembak ke endpoint dinamis yang baru
       const { data } = await api.get(`/batches/user/${userId}`)
-      
-      setBatches(data.batches || data || [])
+
+      const list = data.batches || data || []
+      // Urutkan: tanggal terbaru duluan (defense-in-depth, backend juga sort)
+      const sorted = [...list].sort((a, b) => {
+        const ta = new Date(a.tanggal || a.created_at || 0).getTime()
+        const tb = new Date(b.tanggal || b.created_at || 0).getTime()
+        return tb - ta
+      })
+      setBatches(sorted)
+      return sorted
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal memuat daftar batch')
+      return []
     } finally {
       setLoading(false)
     }

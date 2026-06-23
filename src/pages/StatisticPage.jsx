@@ -6,6 +6,7 @@ import { useDistribusi } from '@/hooks/useDistribusi'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { AdminService } from '@/services/AdminServices'
+import RejectBatchModal from '@/components/ui/RejectBatchModal'
 
 const PER_PAGE = 7
 
@@ -79,6 +80,16 @@ export default function StatisticPage() {
   const [filterJenis, setFilterJenis] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [page, setPage] = useState(1)
+  const [rejectTarget, setRejectTarget] = useState(null)
+
+  async function handleConfirmReject(batch, reason) {
+    await AdminService.rejectBatch(batch.id, reason)
+    setAdminBatches(prev => prev.map(b =>
+      b.id === batch.id
+        ? { ...b, status: 'rejected', gradeA: 0, gradeB: 0, gradeC: 0 }
+        : b
+    ))
+  }
 
   const jenisOptions = useMemo(() => [...new Set(batches.map(b => b.jenis))], [batches])
 
@@ -142,7 +153,7 @@ export default function StatisticPage() {
             rejectPercent: totalIkan > 0 ? Math.round((totalGradeC / totalIkan) * 100) : 0,
           })
         })
-        .catch(err => console.error('Gagal memuat batch admin:', err))
+        .catch(() => { /* silent — table akan tampil kosong */ })
     } else if (user && user.id) {
       fetchDistribusi(user.id)
     }
@@ -244,7 +255,7 @@ export default function StatisticPage() {
             <tr className="border-b border-gray-200 bg-gray-50">
               {[
                 'Batch','Tanggal','Jenis','Grade A','Grade B','Grade C','Total','Distribusi','Berat',
-                ...(isAdmin ? ['Oleh'] : []),
+                ...(isAdmin ? ['Oleh', 'Aksi'] : []),
               ].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
                   {h}
@@ -255,7 +266,7 @@ export default function StatisticPage() {
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 10 : 9} className="px-4 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={isAdmin ? 11 : 9} className="px-4 py-12 text-center text-gray-400 text-sm">
                   Tidak ada batch ditemukan
                 </td>
               </tr>
@@ -299,6 +310,21 @@ export default function StatisticPage() {
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{batch.berat} kg</td>
                   {isAdmin && (
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{batch.oleh || '-'}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      {isRejected ? (
+                        <span className="text-[10px] font-semibold text-gray-300">—</span>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRejectTarget(batch) }}
+                          title="Tolak batch"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 hover:border-red-200 rounded-lg transition-colors"
+                        >
+                          <Ban size={12} /> Tolak
+                        </button>
+                      )}
+                    </td>
                   )}
                 </tr>
               )
@@ -345,6 +371,13 @@ export default function StatisticPage() {
           </div>
         )}
       </div>
+
+      <RejectBatchModal
+        open={!!rejectTarget}
+        batch={rejectTarget ? { id: rejectTarget.id, jenis: rejectTarget.jenis, userName: rejectTarget.oleh } : null}
+        onClose={() => setRejectTarget(null)}
+        onConfirm={handleConfirmReject}
+      />
     </div>
   )
 }

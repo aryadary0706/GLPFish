@@ -1,13 +1,23 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { Sidebar } from '../components/ui/Sidebar';
 
 export default function DashboardLayout() {
   const location = useLocation();
-  
-  let activeMenu: 'gallery' | 'camera' | 'stats' | 'settings' | 'admin' = 'gallery';
+  const [searchParams] = useSearchParams();
 
-  if (location.pathname.includes('/upload')) {
+  type Menu = 'gallery' | 'camera' | 'stats' | 'settings' | 'admin';
+
+  // Override eksplisit lewat query (?via=upload) — dipasang Sidebar saat klik
+  // Upload yang berakhir di /hasil supaya highlight tetap di Upload.
+  const viaParam = searchParams.get('via');
+  const overrideMenu: Menu | null = viaParam === 'upload' ? 'camera' : null;
+
+  let activeMenu: Menu = 'gallery';
+
+  if (overrideMenu) {
+    activeMenu = overrideMenu;
+  } else if (location.pathname.includes('/upload')) {
     activeMenu = 'camera';
   } else if (location.pathname.includes('/statistic')) {
     activeMenu = 'stats';

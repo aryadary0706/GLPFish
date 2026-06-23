@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase.js";
+import { checkModelHealth, predictFishQuality } from "../lib/model.js";
 
 function _ext(mimetype) {
   const map = {
@@ -113,6 +114,38 @@ export const uploadFishImages = async (userId, batchId, files) => {
     const gillFile = files.gill[0];
     const timestamp = Date.now();
 
+    // ─── PRECHECK: status batch & kapasitas ───
+    // Tolak kalau batch sudah saved/rejected (Bug #4 fix).
+    // Tolak kalau jumlah ikan sudah mencapai fish_count (Bug #5 fix).
+    const { data: batchPre, error: batchPreErr } = await supabase
+      .from("batches")
+      .select("preprocessed_status, fish_count")
+      .eq("id", batchId)
+      .single();
+
+    if (batchPreErr || !batchPre) {
+      throw { status: 404, message: "Batch tidak ditemukan." };
+    }
+    if (batchPre.preprocessed_status === "saved" || batchPre.preprocessed_status === "rejected") {
+      throw {
+        status: 400,
+        message: `Batch sudah ${batchPre.preprocessed_status === "saved" ? "disimpan final" : "ditolak"}, tidak bisa menambah ikan.`,
+      };
+    }
+
+    const { count: currentCount, error: countPreErr } = await supabase
+      .from("fishes")
+      .select("*", { count: "exact", head: true })
+      .eq("batch_id", batchId);
+
+    if (countPreErr) throw countPreErr;
+    if (batchPre.fish_count && currentCount >= batchPre.fish_count) {
+      throw {
+        status: 400,
+        message: `Batch sudah penuh (${currentCount}/${batchPre.fish_count} ikan). Tidak bisa menambah lagi.`,
+      };
+    }
+
     const eyePath = `${userId}/${batchId}/${timestamp}_eye${_ext(eyeFile.mimetype)}`;
     const gillPath = `${userId}/${batchId}/${timestamp}_gill${_ext(gillFile.mimetype)}`;
 
@@ -211,6 +244,65 @@ export const uploadFishImages = async (userId, batchId, files) => {
       preprocessedStatus = "completed";
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // PREDIKSI LANGSUNG (best-effort, tidak boleh batalkan upload).
+    // Kalau model healthy → simpan grade & set fish.status='done'.
+    // Kalau gagal → fish biarkan 'pending', final /predict yang handle.
+    // ──────────────────────────────────────────────────────────────
+    let predictionPayload = null;
+    try {
+      const modelReady = await checkModelHealth({ retries: 1, timeoutMs: 5000 });
+      if (modelReady) {
+        const prediction = await predictFishQuality(
+          eyeFile.buffer,
+          eyeFile.mimetype,
+          gillFile.buffer,
+          gillFile.mimetype,
+        );
+
+        const rawAvg = (prediction.mata.confidence + prediction.insang.confidence) / 2;
+        const dbConfidenceAvg = rawAvg > 1 ? rawAvg / 100 : rawAvg;
+        const dbEyeConfidence = prediction.mata.confidence > 1
+          ? prediction.mata.confidence / 100
+          : prediction.mata.confidence;
+        const dbGillConfidence = prediction.insang.confidence > 1
+          ? prediction.insang.confidence / 100
+          : prediction.insang.confidence;
+
+        const { error: predErr } = await supabase
+          .from("prediction_results")
+          .insert({
+            fish_id: fishRow.id,
+            confidence_score: dbConfidenceAvg,
+            grade: prediction.grade,
+            label_text: prediction.label,
+            exportable: prediction.layak_ekspor,
+            eyes_status: prediction.mata.status,
+            eyes_confidence_score: dbEyeConfidence,
+            gill_status: prediction.insang.status,
+            gill_confidence_score: dbGillConfidence,
+            waktu_proses_ms: prediction.waktu_proses_ms,
+          });
+
+        if (predErr) throw predErr;
+
+        await supabase
+          .from("fishes")
+          .update({ status: "done" })
+          .eq("id", fishRow.id);
+
+        predictionPayload = {
+          grade: prediction.grade,
+          confidence: dbConfidenceAvg,
+        };
+      } else {
+        console.warn(`[upload] Model belum siap, ikan #${fishIndex} dibiarkan pending`);
+      }
+    } catch (predErr) {
+      console.error(`[upload] Prediksi instan ikan #${fishIndex} gagal:`, predErr.message);
+      // Sengaja swallow — upload tetap dianggap sukses.
+    }
+
     return {
       success: true,
       fish_id: fishRow.id,
@@ -221,6 +313,7 @@ export const uploadFishImages = async (userId, batchId, files) => {
         eye: { id: eyeImgResult.data.id, path: eyeUpload.data.path },
         gill: { id: gillImgResult.data.id, path: gillUpload.data.path },
       },
+      prediction: predictionPayload,
     };
   } catch (error) {
     // ROLLBACK: Jika ada error, hapus semua yang sudah dibuat

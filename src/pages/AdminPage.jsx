@@ -140,8 +140,8 @@ export default function AdminPage() {
   const [error,     setError]     = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null)
 
-  async function handleConfirmReject(batch) {
-    await AdminService.rejectBatch(batch.id)
+  async function handleConfirmReject(batch, reason) {
+    await AdminService.rejectBatch(batch.id, reason)
     setBatches(prev => prev.map(b =>
       b.id === batch.id ? { ...b, preprocessedStatus: 'rejected' } : b
     ))

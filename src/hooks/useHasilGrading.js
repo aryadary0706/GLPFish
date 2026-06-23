@@ -29,7 +29,6 @@ export function useHasilGrading() {
     } catch (err) {
       // ── PENANGANAN ERROR 404 (BATCH BARU / BELUM ADA HASIL) ──
       if (err.response && err.response.status === 404) {
-        console.warn(`Hasil grading untuk batch ${batchId} belum ada. Menggunakan nilai default 0.`);
         setGrading({
           totalIkan: 0,
           avgConfidence: 0,
@@ -40,7 +39,6 @@ export function useHasilGrading() {
           totalBerat: 0
         });
       } else {
-        console.error("Fetch Grading Error:", err)
         setError(err.response?.data?.message || err.response?.data?.error || 'Gagal memuat hasil grading')
       }
     } finally {
@@ -55,7 +53,11 @@ export function useHasilGrading() {
       const { data } = await api.get(`/batches/${batchId}/fishes`)
       setFishes(data.fishes || [])
     } catch (err) {
-      console.error("Fetch Fishes Error:", err)
+      // 404 = belum ada ikan (mis. batch rejected sebelum upload) → bukan error fatal
+      if (err.response?.status === 404) {
+        setFishes([])
+        return
+      }
       setError(err.response?.data?.message || err.response?.data?.error || 'Gagal memuat foto ikan')
     } finally {
       setLoadingFishes(false)
@@ -71,10 +73,12 @@ export function useHasilGrading() {
     }
   }, [])
 
-  // PATCH /api/batches/:batchId/status  { status: "rejected" }
-  const rejectGrading = useCallback(async (batchId) => {
+  // PATCH /api/batches/:batchId/status  { status: "rejected", reject_reason?: string }
+  const rejectGrading = useCallback(async (batchId, rejectReason) => {
     try {
-      await api.patch(`/batches/${batchId}/status`, { status: 'rejected' })
+      const payload = { status: 'rejected' }
+      if (rejectReason) payload.reject_reason = rejectReason
+      await api.patch(`/batches/${batchId}/status`, payload)
     } catch (err) {
       throw new Error(err.response?.data?.message || err.response?.data?.error || 'Gagal menolak grading')
     }

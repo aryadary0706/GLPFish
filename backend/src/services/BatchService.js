@@ -5,50 +5,75 @@ const formatIndonesianDate = (dateString) => {
   return new Date(dateString).toLocaleDateString("id-ID", options);
 };
 
+// Helper: generate batch ID dengan format B-YYMM-NNNN (4 digit), retry kalau collision.
+const generateBatchId = () => {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // Range 1000-9999 → 9000 ID per bulan (sebelumnya cuma 900).
+  const counter = Math.floor(1000 + Math.random() * 9000);
+  return `B-${yearMonth}-${counter}`;
+};
+
 export const createBatch = async (userId, batchData) => {
   const { jenis, tanggal, lokasi, estimasi_jumlah, berat_total, catatan } = batchData;
 
-  const now = new Date();
-  const yearMonth = `${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const randomCounter = Math.floor(100 + Math.random() * 900);
-  const generatedId = `B-${yearMonth}-${randomCounter}`;
+  // Validasi estimasi minimal 1 ikan.
+  const estimasi = Number(estimasi_jumlah);
+  if (!Number.isFinite(estimasi) || estimasi < 1) {
+    throw { status: 400, message: "estimasi_jumlah harus angka >= 1." };
+  }
 
-  const { data, error } = await supabase
-    .from("batches")
-    .insert([
-      {
-        id: generatedId,
-        user_id: userId,
-        fish_category: jenis,
-        created_at: tanggal || new Date().toISOString(),
-        status: "pending",
-        preprocessed_status: "incomplete",
-        lokasi: lokasi,
-        fish_count: estimasi_jumlah,
-        berat_total: berat_total,
-        catatan: catatan
-      }
-    ])
-    .select()
-    .single();
+  // berat_total: terima angka desimal dari user, tapi DB kolom INTEGER → round.
+  // (Migrasi ke numeric direkomendasikan; sementara round agar tidak error type.)
+  const beratInt = Math.max(0, Math.round(Number(berat_total) || 0));
 
-  if (error) throw error;
+  // Retry up to 5x kalau ada duplicate ID (collision rate sangat rendah dengan 4 digit).
+  let lastError = null;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const generatedId = generateBatchId();
+    const { data, error } = await supabase
+      .from("batches")
+      .insert([
+        {
+          id: generatedId,
+          user_id: userId,
+          fish_category: jenis,
+          created_at: tanggal || new Date().toISOString(),
+          status: "pending",
+          preprocessed_status: "incomplete",
+          lokasi: lokasi,
+          fish_count: estimasi,
+          berat_total: beratInt,
+          catatan: catatan
+        }
+      ])
+      .select()
+      .single();
 
-  return {
-    batch: {
-      id: data.id,
-      status: data.status,
-      jenis: data.fish_category,
-      tanggal: data.created_at,
-      lokasi: data.lokasi,
-      estimasi_jumlah: data.estimasi_jumlah,
-      berat_total: data.berat_total,
-      catatan: data.catatan
+    if (!error) {
+      return {
+        batch: {
+          id: data.id,
+          status: data.status,
+          jenis: data.fish_category,
+          tanggal: data.created_at,
+          lokasi: data.lokasi,
+          estimasi_jumlah: data.fish_count,
+          berat_total: data.berat_total,
+          catatan: data.catatan
+        }
+      };
     }
-  };
+
+    lastError = error;
+    // Retry hanya kalau primary key conflict (kode 23505 di Postgres).
+    if (error.code !== "23505") break;
+  }
+
+  throw lastError || new Error("Gagal membuat batch setelah beberapa percobaan");
 };
 
-export const getAllBatches = async (statusFilter) => {
+export const getAllBatches = async (statusFilter, userId, isAdmin = false) => {
   let query = supabase
     .from("batches")
     .select(`
@@ -57,7 +82,13 @@ export const getAllBatches = async (statusFilter) => {
         id,
         prediction_results ( grade )
       )
-    `);
+    `)
+    .order("created_at", { ascending: false });
+
+  // Non-admin hanya boleh lihat batch miliknya sendiri.
+  if (!isAdmin && userId) {
+    query = query.eq("user_id", userId);
+  }
 
   if (statusFilter) {
     query = query.eq("preprocessed_status", statusFilter);
@@ -197,33 +228,81 @@ export const getBatchResult = async (batchId) => {
       batchId: batch.id,
       jenis: batch.fish_category,
       totalIkan: totalIkanProses,
+      estimasi: batch.fish_count || 0,
       avgConfidence: avgConfidence,
       duration: durationStr,
       gradeA: gradeA,
       gradeB: gradeB,
       gradeC: gradeC,
       totalBerat: batch.berat_total || 0,
+      status: batch.status,
+      preprocessedStatus: batch.preprocessed_status,
+      rejectReason: batch.reject_reason || null,
       fish: fishList
     }
   };
 };
 
-export const updateBatchStatus = async (batchId, status) => {
+// Cek apakah error Supabase berhubungan dengan kolom reject_reason yang belum ada
+// atau schema cache PostgREST yang stale.
+const isRejectReasonSchemaError = (err) => {
+  if (!err) return false;
+  const msg = (err.message || "").toLowerCase();
+  return (
+    err.code === "PGRST204" ||
+    err.code === "PGRST205" ||
+    msg.includes("reject_reason") ||
+    msg.includes("schema cache")
+  );
+};
+
+export const updateBatchStatus = async (batchId, status, rejectReason) => {
   if (!["saved", "rejected"].includes(status)) {
     throw { status: 400, message: "Status harus 'saved' atau 'rejected'" };
   }
 
-  const { error } = await supabase
+  const basePayload = { preprocessed_status: status };
+  const fullPayload = { ...basePayload };
+  if (status === "rejected") {
+    fullPayload.reject_reason = rejectReason?.trim() || null;
+  } else {
+    // Bersihkan reason kalau status dipindah dari rejected → saved
+    fullPayload.reject_reason = null;
+  }
+
+  // Coba update dengan reject_reason. Kalau kolomnya belum ada / schema cache stale,
+  // fallback ke update tanpa reject_reason — supaya reject tidak ter-block.
+  let { error } = await supabase
     .from("batches")
-    .update({ preprocessed_status: status })
+    .update(fullPayload)
     .eq("id", batchId);
+
+  let fallbackUsed = false;
+  if (error && isRejectReasonSchemaError(error)) {
+    fallbackUsed = true;
+    console.warn(
+      `[updateBatchStatus] Kolom reject_reason tidak tersedia (${error.code || "?"}: ${error.message}). ` +
+      `Fallback: simpan status saja. Jalankan SQL: ALTER TABLE batches ADD COLUMN reject_reason TEXT; lalu NOTIFY pgrst, 'reload schema';`
+    );
+    const retry = await supabase
+      .from("batches")
+      .update(basePayload)
+      .eq("id", batchId);
+    error = retry.error;
+  }
 
   if (error) throw error;
 
-  return {
+  const reasonProvided = status === "rejected" && !!fullPayload.reject_reason;
+  const result = {
     success: true,
-    message: `Batch status successfully updated to ${status}`
+    message: `Batch status successfully updated to ${status}`,
+    reject_reason_saved: reasonProvided && !fallbackUsed,
   };
+  if (reasonProvided && fallbackUsed) {
+    result.warning = "Alasan reject tidak tersimpan: kolom reject_reason belum ada di database. Jalankan migrasi.";
+  }
+  return result;
 };
 
 export const getBatchDistribution = async (jenis, search, userId) => {
@@ -331,7 +410,7 @@ export const getFishesByBatch = async (batchId) => {
 
   if (error) throw error;
   if (!data || data.length === 0) {
-    throw { status: 404, message: "Tidak ada ikan di batch ini." };
+    return { fishes: [] };
   }
 
   const fishes = data.map((fish) => {
@@ -396,7 +475,8 @@ export const getBatchesByUser = async (userId, statusFilter) => {
         prediction_results ( grade )
       )
     `)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
 
   if (statusFilter) {
     query = query.eq("preprocessed_status", statusFilter);

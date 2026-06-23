@@ -4,9 +4,11 @@ import {
   ChevronRight,
   Upload,
   X,
-  BrainCircuit
+  BrainCircuit,
+  Eye,
+  RefreshCw
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CNNLoadingOverlay from '../components/ui/CNNLoadingOverlay';
 import CameraCapture from '../components/ui/CameraCapture';
 import api from '../lib/api';
@@ -20,10 +22,17 @@ interface UploadPageProps {
 export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
   const navigate = useNavigate();
   const { batchId } = useParams<{ batchId: string }>();
+  const [searchParams] = useSearchParams();
+  const retakeFishId = searchParams.get('retake');
+  const retakeIndexParam = searchParams.get('index');
+  const isRetakeMode = Boolean(retakeFishId);
 
   // Preview URLs (Untuk ditampilkan di UI)
   const [uploadedCount, setUploadedCount] = useState(0);
   const [targetCount, setTargetCount] = useState(0);
+  const [retakeIndex, setRetakeIndex] = useState<number | null>(
+    retakeIndexParam ? Number(retakeIndexParam) : null
+  );
   const [eyeImg, setEyeImg] = useState<string | null>(null);
   const [gillImg, setGillImg] = useState<string | null>(null);
   // Actual File objects (Untuk dikirim ke Backend)
@@ -32,13 +41,16 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
   const [loading, setLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [cameraOpenFor, setCameraOpenFor] = useState<'eye' | 'gill' | null>(null);
+  // True jika foto terakhir sudah ke-upload tapi predict gagal — supaya retry tidak upload ulang.
+  const [predictRetryPending, setPredictRetryPending] = useState(false);
 
   const isFull = uploadedCount >= targetCount && targetCount > 0;
   const isReadyToProcess = eyeImg !== null && gillImg !== null;
   const willBeCount = uploadedCount + 1;
   const isLastFish = willBeCount >= targetCount;
+  const canSeeIntermediateResult = !isRetakeMode && (uploadedCount > 0 || predictRetryPending);
 
-  // Fetch data progress
+  // Fetch data progress + redirect kalau batch sudah final
   useEffect(() => {
     const fetchBatchProgress = async () => {
       try {
@@ -46,13 +58,33 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
         const batchList = response.data?.batches || response.data || [];
         const currentBatch = batchList.find((b: any) => b.id === batchId);
         if (currentBatch) {
-          setUploadedCount(currentBatch.total_uploaded || 0); 
+          // Auto-redirect ke Hasil kalau batch sudah saved/rejected (final).
+          // Jangan redirect saat retake mode karena retake harus pakai upload page.
+          if (!isRetakeMode && (currentBatch.status === 'saved' || currentBatch.status === 'rejected')) {
+            navigate(`/batches/${batchId}/hasil`, { replace: true });
+            return;
+          }
+          setUploadedCount(currentBatch.total_uploaded || 0);
           setTargetCount(currentBatch.estimasi_jumlah || 0);
         }
-      } catch (error) { console.error("Gagal ambil progres:", error); }
+      } catch { /* silent — bukan error fatal untuk user */ }
     };
     if (batchId) fetchBatchProgress();
-  }, [batchId]);
+  }, [batchId, isRetakeMode, navigate]);
+
+  // Jika retake mode tapi tidak ada index di query, ambil dari endpoint fishes
+  useEffect(() => {
+    if (!isRetakeMode || retakeIndex !== null || !batchId) return;
+    const fetchFishIndex = async () => {
+      try {
+        const { data } = await api.get(`/batches/${batchId}/fishes`);
+        const list = data?.fishes || [];
+        const target = list.find((f: any) => f.id === retakeFishId);
+        if (target) setRetakeIndex(target.fish_index);
+      } catch { /* silent — fetch index opsional */ }
+    };
+    fetchFishIndex();
+  }, [isRetakeMode, retakeIndex, batchId, retakeFishId]);
 
   // Refs untuk input file (Galeri)
   const eyeInputRef = useRef<HTMLInputElement>(null);
@@ -78,18 +110,18 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
   // HANDLE FILE (DARI GALERI ATAU KAMERA NATIVE)
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'eye' | 'gill') => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const acceptFile = (file: File, type: 'eye' | 'gill'): boolean => {
+    if (!file.type.startsWith('image/')) {
+      setUploadError(`File "${file.name}" bukan gambar.`);
+      return false;
+    }
     if (file.size > MAX_FILE_SIZE) {
       setUploadError(`Gagal upload. Ukuran file "${file.name}" terlalu besar (Max 10 MB).`);
-      event.target.value = '';
-      return;
+      return false;
     }
 
     setUploadError(null);
     const previewUrl = URL.createObjectURL(file);
-
     if (type === 'eye') {
       setEyeImg(previewUrl);
       setEyeFile(file);
@@ -97,7 +129,39 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
       setGillImg(previewUrl);
       setGillFile(file);
     }
+    return true;
+  };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'eye' | 'gill') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const ok = acceptFile(file, type);
+    if (!ok) event.target.value = '';
+  };
+
+  // DRAG & DROP STATE
+  const [dragOver, setDragOver] = useState<'eye' | 'gill' | null>(null);
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, type: 'eye' | 'gill') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    if (dragOver !== type) setDragOver(type);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(null);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, type: 'eye' | 'gill') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(null);
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    acceptFile(file, type);
   };
 
   // HIT API POST /api/upload/images (SAVE ONLY)
@@ -135,8 +199,6 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
       if (eyeInputRef.current) eyeInputRef.current.value = '';
       if (gillInputRef.current) gillInputRef.current.value = '';
     } catch (err: any) {
-      console.error('Upload Error:', err);
-      // Tangkap pesan error dari Axios
       const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Terjadi kesalahan saat menyimpan foto.';
       setUploadError(errorMsg);
     } finally {
@@ -144,31 +206,66 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
     }
   };
 
-  const handleSaveAndPredict = async () => {
-    if (!eyeFile || !gillFile) return;
-
+  const handleRetakeSubmit = async () => {
+    if (!eyeFile || !gillFile || !retakeFishId) return;
     setLoading(true);
-
+    setUploadError(null);
     try {
       const formData = new FormData();
       formData.append('eye', eyeFile);
       formData.append('gill', gillFile);
-      formData.append('batch_id', batchId || '');
-
-      // 1. Upload dulu ke backend lokal (lokal akan simpan ke DB & panggil AI HF)
-      await api.post('/upload/images', formData);
-
-      // 2. Trigger proses prediksi di backend lokal
-      // Kita panggil endpoint backend lokal yang sudah kita arahkan ke Hugging Face tadi
-      await api.post('/inspections/predict', { 
-        batch_id: batchId 
-      });
-
-      // 3. Kalau sukses, baru pindah halaman
+      formData.append('fish_id', retakeFishId);
+      await api.post('/upload/replace', formData);
       navigate(`/batches/${batchId}/hasil`);
-    } catch (err) {
-      console.error("Predict Error:", err);
-      setUploadError('Gagal menjalankan proses. Pastikan semua file terupload dengan benar.');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Gagal mengganti foto ikan.';
+      setUploadError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAndPredict = async () => {
+    if (!predictRetryPending && (!eyeFile || !gillFile)) return;
+
+    setLoading(true);
+    setUploadError(null);
+
+    try {
+      // 1. Upload foto ikan terakhir — skip jika sebelumnya sudah berhasil & sedang retry predict
+      if (!predictRetryPending) {
+        const formData = new FormData();
+        formData.append('eye', eyeFile!);
+        formData.append('gill', gillFile!);
+        formData.append('batch_id', batchId || '');
+        await api.post('/upload/images', formData);
+
+        setUploadedCount(prev => prev + 1);
+        setEyeImg(null);
+        setGillImg(null);
+        setEyeFile(null);
+        setGillFile(null);
+        if (eyeInputRef.current) eyeInputRef.current.value = '';
+        if (gillInputRef.current) gillInputRef.current.value = '';
+        setPredictRetryPending(true);
+      }
+
+      // 2. Trigger proses prediksi
+      await api.post('/inspections/predict', { batch_id: batchId });
+
+      // 3. Sukses — pindah halaman
+      setPredictRetryPending(false);
+      navigate(`/batches/${batchId}/hasil`);
+    } catch (err: any) {
+      const backendMsg = err?.response?.data?.error || err?.response?.data?.message;
+      const status = err?.response?.status;
+      if (status === 503) {
+        setUploadError(backendMsg || 'Model AI sedang cold start. Tunggu ~30 detik lalu klik "Coba prediksi lagi" — foto Anda tetap tersimpan.');
+      } else if (backendMsg) {
+        setUploadError(backendMsg);
+      } else {
+        setUploadError('Gagal menjalankan proses. Pastikan semua file terupload dengan benar.');
+      }
     } finally {
       setLoading(false);
     }
@@ -214,36 +311,54 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
         <ChevronRight size={14} className="mx-1" />
 
-        <span className="text-gray-900 font-medium">Upload</span>
+        <span className="text-gray-900 font-medium">{isRetakeMode ? 'Retake' : 'Upload'}</span>
 
       </div>
 
 
 
-      <div className="flex justify-between items-end mb-6">
+      <div className="flex justify-between items-end mb-6 gap-4 flex-wrap">
 
-        <div>
+        <div className="flex-1 min-w-[260px]">
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Upload gambar ikan</h1>
-          <div className="mt-3">
-            <div className="flex justify-between text-sm mb-1">
-              <span>Progress Upload</span>
-              <span>{uploadedCount}/{targetCount}</span>
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">
+            {isRetakeMode
+              ? `Retake foto Ikan${retakeIndex ? ` #${retakeIndex}` : ''}`
+              : 'Upload gambar ikan'}
+          </h1>
+          {isRetakeMode ? (
+            <p className="text-sm text-gray-500 mt-1">
+              Ambil ulang foto mata & insang. Foto lama akan diganti dan prediksi otomatis dijalankan ulang.
+            </p>
+          ) : (
+            <div className="mt-3">
+              <div className="flex justify-between text-sm mb-1">
+                <span>Progress Upload</span>
+                <span>{uploadedCount}/{targetCount}</span>
+              </div>
+
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-orange-500 h-2 rounded-full"
+                  style={{
+                    width:
+                      targetCount > 0
+                        ? `${(uploadedCount / targetCount) * 100}%`
+                        : '0%'
+                  }}
+                />
+              </div>
             </div>
-
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-orange-500 h-2 rounded-full"
-                style={{
-                  width:
-                    targetCount > 0
-                      ? `${(uploadedCount / targetCount) * 100}%`
-                      : '0%'
-                }}
-              />
-            </div>
-          </div>
+          )}
         </div>
+        {canSeeIntermediateResult && (
+          <button
+            onClick={() => navigate(`/batches/${batchId}/hasil`)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border border-orange-300 text-orange-600 rounded-xl hover:bg-orange-50 transition-colors"
+          >
+            <Eye size={16} /> Lihat hasil sementara
+          </button>
+        )}
       </div>
 
       {uploadError && (
@@ -262,13 +377,20 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
         {eyeImg === null ? (
 
-          <div className="border-2 border-dashed border-orange-400 bg-[#fff8f3] rounded-3xl p-6 lg:p-8 flex flex-col xl:flex-row items-center gap-6 justify-center text-center xl:text-left h-full min-h-[300px]">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'eye')}
+            onDragEnter={(e) => handleDragOver(e, 'eye')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'eye')}
+            className={`border-2 border-dashed rounded-3xl p-6 lg:p-8 flex flex-col xl:flex-row items-center gap-6 justify-center text-center xl:text-left h-full min-h-[300px] transition-colors ${dragOver === 'eye' ? 'border-orange-600 bg-orange-100 ring-4 ring-orange-200' : 'border-orange-400 bg-[#fff8f3]'}`}
+          >
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm pointer-events-none">
               <Upload className="text-orange-500" size={28} />
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 pointer-events-none">
               <h3 className="text-orange-600 font-bold text-lg leading-tight">Drop foto mata<br />ikan di sini</h3>
+              <p className="text-xs text-orange-500/80 mt-1">atau pilih file / pakai kamera</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 shrink-0">
@@ -286,7 +408,13 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
         ) : (
 
-          <div className="border-2 border-dashed border-orange-400 bg-[#fff8f3] rounded-3xl p-6 flex flex-col h-full min-h-[400px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'eye')}
+            onDragEnter={(e) => handleDragOver(e, 'eye')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'eye')}
+            className={`border-2 border-dashed rounded-3xl p-6 flex flex-col h-full min-h-[400px] transition-colors ${dragOver === 'eye' ? 'border-orange-600 bg-orange-100 ring-4 ring-orange-200' : 'border-orange-400 bg-[#fff8f3]'}`}
+          >
 
             <h3 className="text-orange-600 font-bold text-xl mb-4">Mata Ikan</h3>
 
@@ -322,17 +450,24 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
 
         {gillImg === null ? (
 
-          <div className="border-2 border-dashed border-orange-400 bg-[#fff8f3] rounded-3xl p-6 lg:p-8 flex flex-col xl:flex-row items-center gap-6 justify-center text-center xl:text-left h-full min-h-[300px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'gill')}
+            onDragEnter={(e) => handleDragOver(e, 'gill')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'gill')}
+            className={`border-2 border-dashed rounded-3xl p-6 lg:p-8 flex flex-col xl:flex-row items-center gap-6 justify-center text-center xl:text-left h-full min-h-[300px] transition-colors ${dragOver === 'gill' ? 'border-orange-600 bg-orange-100 ring-4 ring-orange-200' : 'border-orange-400 bg-[#fff8f3]'}`}
+          >
 
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm pointer-events-none">
 
               <Upload className="text-orange-500" size={28} />
 
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 pointer-events-none">
 
               <h3 className="text-orange-600 font-bold text-lg leading-tight">Drop foto insang<br />ikan di sini</h3>
+              <p className="text-xs text-orange-500/80 mt-1">atau pilih file / pakai kamera</p>
 
             </div>
 
@@ -348,7 +483,13 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
           </div>
         ) : (
 
-          <div className="border-2 border-dashed border-orange-400 bg-[#fff8f3] rounded-3xl p-6 flex flex-col h-full min-h-[400px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'gill')}
+            onDragEnter={(e) => handleDragOver(e, 'gill')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'gill')}
+            className={`border-2 border-dashed rounded-3xl p-6 flex flex-col h-full min-h-[400px] transition-colors ${dragOver === 'gill' ? 'border-orange-600 bg-orange-100 ring-4 ring-orange-200' : 'border-orange-400 bg-[#fff8f3]'}`}
+          >
             <h3 className="text-orange-600 font-bold text-xl mb-4">Insang Ikan</h3>
             <div className="flex-1 w-full bg-gray-200 rounded-xl overflow-hidden mb-6 relative">
               <img src={gillImg} alt="Preview Insang Ikan" className="w-full h-full object-contain absolute inset-0 bg-black/5" />
@@ -372,7 +513,42 @@ export const UploadPhotoPage = ({ onBack }: UploadPageProps) => {
       <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
         <div className="flex items-center gap-3">
 
-          {isLastFish ? (
+          {isRetakeMode ? (
+            <>
+              <button
+                onClick={() => navigate(`/batches/${batchId}/hasil`)}
+                disabled={loading}
+                className="px-5 py-3 rounded-xl text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleRetakeSubmit}
+                disabled={!isReadyToProcess || loading}
+                className={`px-8 py-3 rounded-xl text-sm font-bold flex items-center gap-2 ${isReadyToProcess && !loading
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                <RefreshCw size={18} />
+                Simpan & prediksi ulang
+              </button>
+            </>
+          ) : predictRetryPending ? (
+
+            <button
+              onClick={handleSaveAndPredict}
+              disabled={loading}
+              className={`px-8 py-3 rounded-xl text-sm font-bold flex items-center gap-2 ${loading
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`}
+            >
+              <RefreshCw size={18} />
+              Coba prediksi lagi
+            </button>
+
+          ) : isLastFish ? (
 
             <button
               onClick={handleSaveAndPredict}

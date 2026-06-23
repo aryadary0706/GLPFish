@@ -1,22 +1,43 @@
 // src/lib/fishModel.js
 import FormData from 'form-data'
 import fetch from 'node-fetch'
+import dotenv from 'dotenv'
 
-// const MODEL_URL = process.env.FISH_MODEL_API_URL
-const MODEL_URL = process.env.FISH_MODEL_API_URL;
+dotenv.config({ path: '.env.local' })
+
+function getModelUrl() {
+  const url = process.env.FISH_MODEL_API_URL
+  if (!url) {
+    throw new Error('FISH_MODEL_API_URL belum diset di .env.local')
+  }
+  return url.replace(/\/$/, '')
+}
 
 /**
  * Cek apakah FastAPI model server hidup dan model sudah di-load
  * @returns {Promise<boolean>}
  */
-export async function checkModelHealth() {
+export async function checkModelHealth({ retries = 3, retryDelayMs = 5000, timeoutMs = 15000 } = {}) {
+  let url
   try {
-    const res  = await fetch(`${MODEL_URL}/health`, { signal: AbortSignal.timeout(5000) })
-    const data = await res.json()
-    return data.model_ready === true
-  } catch {
+    url = getModelUrl()
+  } catch (err) {
+    console.error('[model-health]', err.message)
     return false
   }
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(timeoutMs) })
+      const data = await res.json()
+      if (data.model_ready === true) return true
+      console.warn(`[model-health] attempt ${attempt}: model_ready=${data.model_ready}`)
+    } catch (err) {
+      console.warn(`[model-health] attempt ${attempt} gagal: ${err.message}`)
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, retryDelayMs))
+  }
+  return false
 }
 
 /**
@@ -39,6 +60,7 @@ export async function checkModelHealth() {
  * }>}
  */
 export async function predictFishQuality(eyeBuffer, eyeMimetype, gillBuffer, gillMimetype) {
+  const url = getModelUrl()
   const form = new FormData()
 
   form.append('eye', eyeBuffer, {
@@ -52,21 +74,20 @@ export async function predictFishQuality(eyeBuffer, eyeMimetype, gillBuffer, gil
 
   let res
   try {
-    res = await fetch(`${MODEL_URL}/predict`, {
+    res = await fetch(`${url}/predict`, {
       method:  'POST',
       body:    form,
       headers: form.getHeaders(),
-      signal:  AbortSignal.timeout(30000), // timeout 30 detik
+      signal:  AbortSignal.timeout(60000), // timeout 60 detik (HF Space CPU bisa lambat)
     })
   } catch (err) {
     // Network error / timeout
-    throw new Error(err.detail || `Model server error (${res.status})`)
+    throw new Error(`Model server error: ${err.message || err}`)
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    // Teruskan pesan error dari FastAPI langsung ke client
-    throw new Error(err.detail || `Model server error (${res.status})`)
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.detail || `Model server error (HTTP ${res.status})`)
   }
 
   return await res.json()

@@ -1,4 +1,23 @@
 import { uploadFishImages } from "../services/UploadImages.js";
+import { retakeFishImages } from "../services/RetakeFish.js";
+
+export const replaceFishImages = async (req, res) => {
+  try {
+    const { fish_id } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Akses ditolak. User tidak terautentikasi." });
+    }
+
+    const result = await retakeFishImages(userId, fish_id, req.files);
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("[upload/replace] Error:", err.message);
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message || "Terjadi kesalahan saat retake foto." });
+  }
+};
 
 export const uploadImages = async (req, res) => {
   try {
